@@ -5,7 +5,6 @@ import seaborn
 import os
 import zipfile
 from IPython.display import display, Markdown, Latex
-from __future__ import print_function
 from ipywidgets import interact, interactive, fixed, interact_manual
 import ipywidgets as widgets
 
