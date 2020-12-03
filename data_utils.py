@@ -51,9 +51,9 @@ def fix_df_column_types(df, categorical_fields):
         df=df.astype({field: 'str'})
     return(df)
 
-def load_data(data_type, zip_file):
-    df = get_df_from_zip(data_type["type"],zip_file)
-    df = fix_df_column_types(df,data_type["categorical_fields"])
+def load_data(data_dict, zip_file):
+    df = get_df_from_zip(data_dict["file_name"],zip_file)
+    df = fix_df_column_types(df,data_dict["categorical_fields"])
     return(df)
     
 def get_subject_ids(df):
@@ -64,20 +64,20 @@ def get_variables(df):
   cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
   return(cols)
   
-def plot_summary_histograms(df, data_type, cols=3, fields=[]):  
-    num_fields = len(data_type["categorical_fields"])+len(data_type["numerical_fields"])
+def plot_summary_histograms(df, dd, cols=3, fields=[]):  
+    num_fields = len(dd["categorical_fields"])+len(dd["numerical_fields"])
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
     i=0
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
-            if field in data_type["categorical_fields"]:
+            if field in dd["categorical_fields"]:
                 this_ax = axes[i//cols,i%cols]
                 df[field].value_counts().plot(kind="bar",ax=this_ax)
                 this_ax.grid(axis='y')
                 this_ax.set_title(field)
                 i=i+1
-            if field in data_type["numerical_fields"]: 
+            if field in dd["numerical_fields"]: 
                 this_ax = axes[i//cols,i%cols]
                 df[field].hist(figure=fig,ax=this_ax)
                 this_ax.grid(True)
@@ -92,14 +92,15 @@ def plot_indifivual_time_series(df,variable,subject_id):
   plt.title("Subject %s: %s"%(subject_id,variable))
   plt.show()
 
-def show_individual_time_series_visualizer(df,data_type):
+def show_individual_time_series_visualizer(df):
   sids=get_subject_ids(df)
   vars=get_variables(df)
   interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
 
-data_types = {}
-data_types["daily-metrics"]={}
-data_types["daily-metrics"]["type"] = "daily-metrics"
-data_types["daily-metrics"]["name"] = "Daily Metrics Data"
-data_types["daily-metrics"]["categorical_fields"] = ["App Used","Fitbit Updated Completely","Fitbit Worn"]
-data_types["daily-metrics"]["numerical_fields"] = ['App Page Views','Fitbit Minutes Worn','Fitbit Step Count','Fitbit Update Count','Number of Location Records', 'Messages Sent','Messages Received', 'Messages Opened', 'Messages Engaged']
+data_dicts = {}
+data_dicts["daily-metrics"]={}
+data_dicts["daily-metrics"]["file_name"] = "daily-metrics"
+data_dicts["daily-metrics"]["name"] = "Daily Metrics Data"
+data_dicts["daily-metrics"]["categorical_fields"] = ["App Used","Fitbit Updated Completely","Fitbit Worn"]
+data_dicts["daily-metrics"]["numerical_fields"] = ['App Page Views','Fitbit Minutes Worn','Fitbit Step Count','Fitbit Update Count','Number of Location Records', 'Messages Sent','Messages Received', 'Messages Opened', 'Messages Engaged']
+
