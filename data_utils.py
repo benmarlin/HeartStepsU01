@@ -51,13 +51,20 @@ def fix_df_column_types(df, categorical_fields):
         df=df.astype({field: 'str'})
     return(df)
 
-def load_data(data_type, zip_file = data_zip):
+def load_data(data_type, zip_file):
     df = get_df_from_zip(data_type["type"],zip_file)
     df = fix_df_column_types(df,data_type["categorical_fields"])
     return(df)
     
-def plot_summary_histograms(data_type, cols=3, fields=[]):
-    df = load_data(data_type)    
+def get_subject_ids(df):
+  sids = list(df.index.levels[0])
+  return list(sids)
+
+def get_variables(df): 
+  cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
+  return(cols)
+  
+def plot_summary_histograms(df, data_type, cols=3, fields=[]):  
     num_fields = len(data_type["categorical_fields"])+len(data_type["numerical_fields"])
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
@@ -85,16 +92,7 @@ def plot_indifivual_time_series(df,variable,subject_id):
   plt.title("Subject %s: %s"%(subject_id,variable))
   plt.show()
 
-def get_subject_ids(df):
-  sids = list(df.index.levels[0])
-  return list(sids)
-
-def get_variables(df): 
-  cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
-  return(cols)
-
-def show_individual_time_series_visualizer(data_type):
-  df=load_data(data_type)
+def show_individual_time_series_visualizer(df,data_type):
   sids=get_subject_ids(df)
   vars=get_variables(df)
   interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
