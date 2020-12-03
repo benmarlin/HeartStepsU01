@@ -9,8 +9,6 @@ from __future__ import print_function
 from ipywidgets import interact, interactive, fixed, interact_manual
 import ipywidgets as widgets
 
-%matplotlib inline
-
 study_prefix = "U01 Data/usc-study.u01."
 
 def get_user_id_from_filename(f):
