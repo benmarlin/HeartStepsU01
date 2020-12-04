@@ -39,16 +39,17 @@ def get_df_from_zip(file_type,zip_file):
     #Read file with pandas
     return(df)
 
-def fix_df_column_types(df, categorical_fields):
-    #Set categorical fields to string type to prevent
-    #interpretation as numeric
-    for field in categorical_fields:
-        df=df.astype({field: 'str'})
+def fix_df_column_types(df, dd):
+    #Set Boolean/String fields to string type to prevent
+    #interpretation as numeric for now
+    for field in list(df.keys()):
+        if dd.loc[field]["DataType"] in ["Boolean","String"]:
+          df=df.astype({field: 'str'})
     return(df)
 
 def load_data(data_info, zip_file):
     df = get_df_from_zip(data_info["file_name"],zip_file)
-    #df = fix_df_column_types(df,data_dict["categorical_fields"])
+    df = fix_df_column_types(df,data_info["dictionary"])
     return(df)
     
 def get_subject_ids(df):
