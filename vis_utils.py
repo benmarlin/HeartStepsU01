@@ -61,5 +61,5 @@ def show_summary_table(df):
     x=HTML(tabulate.tabulate(zip(names, values), tablefmt='html'))
     x.data = x.data.replace("table", "table style='border-spacing: 0px; border-collapse: collapse; padding: 5px'")
     x.data = x.data.replace("td", "td style='border: 1px solid black;padding: 5px '")
-
+    x.data = x.data + "<br><br>"
     display(x)
