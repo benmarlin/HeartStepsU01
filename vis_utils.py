@@ -7,6 +7,8 @@ import zipfile
 from IPython.display import display, Markdown, Latex
 from ipywidgets import interact, interactive, fixed, interact_manual
 import ipywidgets as widgets
+from . import data_utils
+
 
 def plot_summary_histograms(df, dd, cols=3, fields=[]):  
     num_fields = len(dd["categorical_fields"])+len(dd["numerical_fields"])
@@ -37,6 +39,6 @@ def plot_indifivual_time_series(df,variable,subject_id):
   plt.show()
 
 def show_individual_time_series_visualizer(df):
-  sids=get_subject_ids(df)
+  sids=data_utils.get_subject_ids(df)
   vars=get_variables(df)
   interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
