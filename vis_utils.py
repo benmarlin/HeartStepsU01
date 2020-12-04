@@ -10,21 +10,24 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def plot_summary_histograms(df, dd, di, cols=3, fields=[]):  
+def plot_summary_histograms(df,di, cols=3, fields=[]):  
     display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%di["name"]))
-    num_fields = len(dd["categorical_fields"])+len(dd["numerical_fields"])
+    
+    dd = di["dictionary"]
+    num_fields = len(list(df.keys()))  
+    
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
     i=0
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
-            if field in dd["categorical_fields"]:
+            if dd.loc[field]["DataType"] in ["Boolean","String"]:
                 this_ax = axes[i//cols,i%cols]
                 df[field].value_counts().plot(kind="bar",ax=this_ax)
                 this_ax.grid(axis='y')
                 this_ax.set_title(field)
                 i=i+1
-            if field in dd["numerical_fields"]: 
+            else: 
                 this_ax = axes[i//cols,i%cols]
                 df[field].hist(figure=fig,ax=this_ax)
                 this_ax.grid(True)
