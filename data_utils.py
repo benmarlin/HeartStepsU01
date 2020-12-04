@@ -52,12 +52,22 @@ def load_data(data_dict, zip_file):
     return(df)
     
 def get_subject_ids(df):
-  sids = list(df.index.levels[0])
-  return list(sids)
+    sids = list(df.index.levels[0])
+    return list(sids)
 
 def get_variables(df): 
-  cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
-  return(cols)
+    cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
+    return(cols)
+
+def get_data_info(dictionary_file,file_filter,long_name):
+    dd=pd.read_csv(dictionary_file)
+    dd=dd.set_index("ElementName")
+    di={}
+    di["file_name"]=file_filter
+    di["name"]=long_name
+    di["dictionary"]=dd
+    return(di)
+
 
 data_dicts = {}
 data_dicts["daily-metrics"]={}
