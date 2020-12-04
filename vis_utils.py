@@ -11,6 +11,7 @@ import tabulate
 from . import data_utils
 
 def plot_summary_histograms(df, dd, cols=3, fields=[]):  
+    display(HTML("<H2>Summary Histograms by Variable</H2>"))
     num_fields = len(dd["categorical_fields"])+len(dd["numerical_fields"])
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
@@ -61,5 +62,14 @@ def show_summary_table(df):
     x=HTML(tabulate.tabulate(zip(names, values), tablefmt='html'))
     x.data = x.data.replace("table", "table style='border-spacing: 0px; border-collapse: collapse; padding: 5px'")
     x.data = x.data.replace("td", "td style='border: 1px solid black;padding: 5px '")
-    x.data = x.data + "<br><br>"
+    x.data = x.data
+    display(HTML("<H2>Summary Table</H2>"))
     display(x)
+    
+    
+def show_data_dictionary(di):
+    display(HTML("<H2>Data Dictionary: %s</H2>"%di["name"]))
+    dfStyler = di["dictionary"][["DataType","ElementDescription"]].style.set_properties(**{'text-align': 'left','border':'1px solid black'})
+    dfStyler =dfStyler.set_table_styles([dict(selector='th', props=[('text-align', 'left'),('border','1px solid black')])])
+    dfStyler =dfStyler.set_table_attributes('style="border-collapse:collapse; border:1px solid black"')
+    display(dfStyler)
