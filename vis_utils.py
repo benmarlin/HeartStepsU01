@@ -40,5 +40,5 @@ def plot_indifivual_time_series(df,variable,subject_id):
 
 def show_individual_time_series_visualizer(df):
   sids=data_utils.get_subject_ids(df)
-  vars=get_variables(df)
+  vars=data_utils.get_variables(df)
   interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
