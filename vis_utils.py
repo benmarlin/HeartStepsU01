@@ -10,8 +10,8 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def plot_summary_histograms(df, dd, cols=3, fields=[]):  
-    display(HTML("<H2>Summary Histograms by Variable</H2>"))
+def plot_summary_histograms(df, dd, di, cols=3, fields=[]):  
+    display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%di["name"]))
     num_fields = len(dd["categorical_fields"])+len(dd["numerical_fields"])
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
@@ -45,7 +45,7 @@ def show_individual_time_series_visualizer(df):
     interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
   
   
-def show_summary_table(df):
+def show_summary_table(df,di):
     subjects = data_utils.get_subject_ids(df)
     cols     = list(df.columns)
 
@@ -63,7 +63,7 @@ def show_summary_table(df):
     x.data = x.data.replace("table", "table style='border-spacing: 0px; border-collapse: collapse; padding: 5px'")
     x.data = x.data.replace("td", "td style='border: 1px solid black;padding: 5px '")
     x.data = x.data
-    display(HTML("<H2>Summary Table</H2>"))
+    display(HTML("<H2>Summary Table: %s</H2>"%di["name"]))
     display(x)
     
     
