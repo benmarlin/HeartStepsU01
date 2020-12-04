@@ -46,9 +46,9 @@ def fix_df_column_types(df, categorical_fields):
         df=df.astype({field: 'str'})
     return(df)
 
-def load_data(data_dict, zip_file):
-    df = get_df_from_zip(data_dict["file_name"],zip_file)
-    df = fix_df_column_types(df,data_dict["categorical_fields"])
+def load_data(data_info, zip_file):
+    df = get_df_from_zip(data_info["file_name"],zip_file)
+    #df = fix_df_column_types(df,data_dict["categorical_fields"])
     return(df)
     
 def get_subject_ids(df):
