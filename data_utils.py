@@ -41,10 +41,15 @@ def get_df_from_zip(file_type,zip_file):
 
 def fix_df_column_types(df, dd):
     #Set Boolean/String fields to string type to prevent
-    #interpretation as numeric for now
+    #interpretation as numeric for now. Leave nans in to
+    #indicate missing data.
     for field in list(df.keys()):
+        
         if dd.loc[field]["DataType"] in ["Boolean","String"]:
-          df=df.astype({field: 'str'})
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
+        
+        #if dd.loc[field]["DataType"] in ["Boolean","String"]:
+        #  df=df.astype({field: 'str'})
     return(df)
 
 def load_data(data_info, zip_file):
