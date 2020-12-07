@@ -95,3 +95,4 @@ def show_missing_data_by_participant(df,di):
     plt.xlim(0,1)
     plt.title("Missing Data Rate by Participant")
     plt.xlabel("Missing data rate")
+    plt.show()
