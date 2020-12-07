@@ -76,3 +76,12 @@ def show_data_dictionary(di):
     dfStyler =dfStyler.set_table_styles([dict(selector='th', props=[('text-align', 'left'),('border','1px solid black')])])
     dfStyler =dfStyler.set_table_attributes('style="border-collapse:collapse; border:1px solid black"')
     display(dfStyler)
+
+def show_missing_data_by_variable(df,di):
+    plt.figure(figsize=(10,8))
+    df.isnull().mean().plot(kind='barh')
+    plt.grid(True)
+    plt.xlim(0,1)
+    plt.title("Missing Data Rate by Variable")
+    plt.xlabel("Missing data rate")
+    plt.show()
