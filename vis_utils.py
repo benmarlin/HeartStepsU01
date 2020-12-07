@@ -78,6 +78,7 @@ def show_data_dictionary(di):
     display(dfStyler)
 
 def show_missing_data_by_variable(df,di):
+    display(HTML("<H2>Missing Data Rate by Variable: %s</H2>"%di["name"]))
     plt.figure(figsize=(10,8))
     df.isnull().mean().plot(kind='barh')
     plt.grid(True)
