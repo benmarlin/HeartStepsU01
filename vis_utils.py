@@ -86,3 +86,12 @@ def show_missing_data_by_variable(df,di):
     plt.title("Missing Data Rate by Variable")
     plt.xlabel("Missing data rate")
     plt.show()
+    
+def show_missing_data_by_participant(df,di):
+    display(HTML("<H2>Missing Data Rate by Participant: %s</H2>"%di["name"]))    
+    plt.figure(figsize=(10,20))
+    df.isnull().mean(level=0).mean(axis=1).sort_values().plot(kind='barh')
+    plt.grid(True)
+    plt.xlim(0,1)
+    plt.title("Missing Data Rate by Participant")
+    plt.xlabel("Missing data rate")
