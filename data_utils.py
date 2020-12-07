@@ -49,7 +49,8 @@ def fix_df_column_types(df, dd):
 
 def load_data(data_info, zip_file):
     df = get_df_from_zip(data_info["file_name"],zip_file)
-    df = fix_df_column_types(df,data_info["dictionary"])
+    #df = fix_df_column_types(df,data_info["dictionary"])
+    df = df.sort_index(level=0)
     return(df)
     
 def get_subject_ids(df):
