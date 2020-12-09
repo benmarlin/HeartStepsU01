@@ -7,7 +7,7 @@ study_prefix = "U01"
 
 def get_user_id_from_filename(f):
     #Get user id from from file name
-    return(f.split(".")[2])
+    return(f.split(".")[3])
 
 def get_file_names_from_zip(z, file_type=None, prefix=study_prefix):  
     #Extact file list
