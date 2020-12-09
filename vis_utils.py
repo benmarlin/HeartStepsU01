@@ -96,14 +96,15 @@ def show_missing_data_by_participant(df,di):
     plt.title("Missing Data Rate by Participant")
     plt.xlabel("Missing data rate")
     plt.show()
-    
-def data_selector(data_file,data_dir):
-    global data_zip
-    data_zip = data_dir+data_file
 
 def show_data_selector(data_dir):
-    global data_zip
     l = [f for f in os.listdir(data_dir) if ".zip" in f]
-    data_zip = data_dir+l[0]
     display(HTML("<H2>Select Data Archive</H2>"))
-    interact(data_selector, data_file=l,data_dir=fixed(data_dir));
+    w=widgets.Dropdown(
+        options=l,
+        value=l[0],
+        description='Data Archive:',
+        disabled=False,
+    )
+    display(w)
+    return(w)
