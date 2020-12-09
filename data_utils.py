@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import zipfile
 
-study_prefix = "U01 Data/usc-study.u01."
+study_prefix = "U01"
 
 def get_user_id_from_filename(f):
     #Get user id from from file name
@@ -13,7 +13,7 @@ def get_file_names_from_zip(z, file_type=None, prefix=study_prefix):
     #Extact file list
     file_list = list(z.filelist)
     if(filter is None):
-        filtered = [f.filename for f in file_list if (prefix in f.filename)]
+        filtered = [f.filename for f in file_list if (prefix in f.filename) and (".csv" in f.filename)]
     else:
         filtered = [f.filename for f in file_list if (file_type in f.filename and prefix in f.filename)]
     return(filtered)
