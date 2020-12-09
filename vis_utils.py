@@ -99,7 +99,6 @@ def show_missing_data_by_participant(df,di):
 
 def show_data_selector(data_dir):
     l = [f for f in os.listdir(data_dir) if ".zip" in f]
-    display(HTML("<H2>Select Data Archive</H2>"))
     w=widgets.Dropdown(
         options=l,
         value=l[0],
