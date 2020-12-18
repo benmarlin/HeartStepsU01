@@ -96,6 +96,6 @@ def get_subject_ids(df):
     return list(sids)
 
 def get_variables(df): 
-    numerical_types = [dtype('int64'), np.dtype('float64')]
+    numerical_types = [np.dtype('int64'), np.dtype('float64')]
     cols = [c for c in list(df.columns) if df.dtypes[c] in numerical_types]
     return(cols)
