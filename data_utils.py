@@ -89,3 +89,11 @@ def load_data(data_catalog, data_product):
     df = fix_df_column_types(df,data_dictionary)
     df = df.sort_index(level=0)
     return(df)
+    
+def get_subject_ids(df):
+    sids = list(df.index.levels[0])
+    return list(sids)
+
+def get_variables(df): 
+    cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
+    return(cols)
