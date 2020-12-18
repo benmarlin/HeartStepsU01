@@ -88,6 +88,7 @@ def load_data(data_catalog, data_product):
     df = df.set_index(index)    
     df = fix_df_column_types(df,data_dictionary)
     df = df.sort_index(level=0)
+    df.name = data_dictionary.name
     return(df)
     
 def get_subject_ids(df):
