@@ -18,8 +18,29 @@ def get_file_names_from_zip(z, file_type=None, prefix=study_prefix):
         filtered = [f.filename for f in file_list if (file_type in f.filename and prefix in f.filename)]
     return(filtered)
 
-def get_df_from_zip(file_type,zip_file):
+def get_data_catalog(catalog_file, data_file, data_dir, dict_dir):
+  dc=pd.read_csv(catalog_file)
+  dc=dc.set_index("Data Product Name")
+  dc.data_file=data_dir+data_file #add data zip file field
+  dc.data_dir=data_dir #add data zip file field
+  dc.dict_dir=dict_dir #add data distionary directory field
+  return(dc)
+
+def get_data_dictionary(data_catalog, data_product_name):
+    dictionary_file = data_catalog.dict_dir + data_catalog.loc[data_product_name]["Data Dictionary File Name"]
+    dd=pd.read_csv(dictionary_file)
+    dd=dd.set_index("ElementName")
+    dd.data_file_name = data_catalog.loc[data_product_name]["Data File Name"] #add data file name pattern field
+    dd.name = data_product_name #add data product name field
+    dd.index_fields = data_catalog.loc[data_product_name]["Index Fields"] #add index fields
+    dd.description = data_catalog.loc[data_product_name]["Data Product Description"]
+    return(dd)
+
+def get_df_from_zip(file_type,zip_file, participants):
     
+    #Get participant list from participants data frame
+    participant_list = list(participants["Participant ID"])
+
     #Open data zip file
     z     = zipfile.ZipFile(zip_file)
     
@@ -30,13 +51,12 @@ def get_df_from_zip(file_type,zip_file):
     dfs=[]
     for file_name in file_list:  
         sid = get_user_id_from_filename(file_name)
-        f = z.open(file_name)
-        df  = pd.read_csv(f)
-        df["Subject ID"] = sid
-        dfs.append(df)
+        if(sid in participant_list):
+            f = z.open(file_name)
+            df  = pd.read_csv(f)
+            df["Subject ID"] = sid
+            dfs.append(df)
     df = pd.concat(dfs)
-    df = df.set_index(["Subject ID","Date"])    
-    #Read file with pandas
     return(df)
 
 def fix_df_column_types(df, dd):
@@ -47,39 +67,25 @@ def fix_df_column_types(df, dd):
         
         if dd.loc[field]["DataType"] in ["Boolean","String"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
-        
-        #if dd.loc[field]["DataType"] in ["Boolean","String"]:
-        #  df=df.astype({field: 'str'})
+
     return(df)
 
-def load_data(data_info, zip_file):
-    df = get_df_from_zip(data_info["file_name"],zip_file)
-    df = fix_df_column_types(df,data_info["dictionary"])
+def get_participant_info(data_catalog):
+    file = data_catalog.data_dir + data_catalog.loc["Participant Information"]["Data File Name"]
+    df   = pd.read_csv(file)
+    return(df)
+
+def get_participants_by_type(data_catalog, participant_type):
+    pi = get_participant_info(data_catalog)
+    pi = pi[pi["Participant Type"]==participant_type]
+    return(pi)
+
+def load_data(data_catalog, data_product):
+    participant_df   = get_participants_by_type(data_catalog,"full")
+    data_dictionary = get_data_dictionary(data_catalog, data_product)
+    df = get_df_from_zip(data_dictionary.data_file_name, data_catalog.data_file, participant_df)
+    index = [x.strip() for x in data_dictionary.index_fields.split(";")]
+    df = df.set_index(index)    
+    df = fix_df_column_types(df,data_dictionary)
     df = df.sort_index(level=0)
     return(df)
-    
-def get_subject_ids(df):
-    sids = list(df.index.levels[0])
-    return list(sids)
-
-def get_variables(df): 
-    cols = [c for c in list(df.columns) if df.dtypes[c] == np.dtype('float64')]
-    return(cols)
-
-def get_data_info(dictionary_file,file_filter,long_name):
-    dd=pd.read_csv(dictionary_file)
-    dd=dd.set_index("ElementName")
-    di={}
-    di["file_name"]=file_filter
-    di["name"]=long_name
-    di["dictionary"]=dd
-    return(di)
-
-
-data_dicts = {}
-data_dicts["daily-metrics"]={}
-data_dicts["daily-metrics"]["file_name"] = "daily-metrics"
-data_dicts["daily-metrics"]["name"] = "Daily Metrics Data"
-data_dicts["daily-metrics"]["categorical_fields"] = ["App Used","Fitbit Updated Completely","Fitbit Worn"]
-data_dicts["daily-metrics"]["numerical_fields"] = ['App Page Views','Fitbit Minutes Worn','Fitbit Step Count','Fitbit Update Count','Number of Location Records', 'Messages Sent','Messages Received', 'Messages Opened', 'Messages Engaged']
-
