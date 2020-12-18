@@ -10,10 +10,9 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def plot_summary_histograms(df,di, cols=3, fields=[]):  
-    display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%di["name"]))
+def plot_summary_histograms(df, dd, cols=3, fields=[]):  
+    display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%df.name))
     
-    dd = di["dictionary"]
     num_fields = len(list(df.keys()))  
     
     rows = int(np.ceil(num_fields/3))
@@ -48,7 +47,7 @@ def show_individual_time_series_visualizer(df):
     interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
   
   
-def show_summary_table(df,di):
+def show_summary_table(df):
     subjects = data_utils.get_subject_ids(df)
     cols     = list(df.columns)
 
@@ -59,26 +58,26 @@ def show_summary_table(df,di):
     num_days=len(df)
     num_cols = len(cols)
 
-    names = ["Number of Subjects","Number of Variables","Total Days","Subjects IDs","Variables"]
+    names = ["Number of Participants","Number of Variables","Total Days","Subjects IDs","Variables"]
     values = [num_subjects, num_cols, num_days, subjects_str, cols_str]
 
     x=HTML(tabulate.tabulate(zip(names, values), tablefmt='html'))
     x.data = x.data.replace("table", "table style='border-spacing: 0px; border-collapse: collapse; padding: 5px'")
     x.data = x.data.replace("td", "td style='border: 1px solid black;padding: 5px '")
     x.data = x.data
-    display(HTML("<H2>Summary Table: %s</H2>"%di["name"]))
+    display(HTML("<H2>Summary Table: %s</H2>"%df.name))
     display(x)
     
     
-def show_data_dictionary(di):
-    display(HTML("<H2>Data Dictionary: %s</H2>"%di["name"]))
-    dfStyler = di["dictionary"][["DataType","ElementDescription"]].style.set_properties(**{'text-align': 'left','border':'1px solid black'})
+def show_data_dictionary(dd):
+    display(HTML("<H2>Data Dictionary: %s</H2>"%dd.name))
+    dfStyler = dd[["DataType","ElementDescription"]].style.set_properties(**{'text-align': 'left','border':'1px solid black'})
     dfStyler =dfStyler.set_table_styles([dict(selector='th', props=[('text-align', 'left'),('border','1px solid black')])])
     dfStyler =dfStyler.set_table_attributes('style="border-collapse:collapse; border:1px solid black"')
     display(dfStyler)
 
-def show_missing_data_by_variable(df,di):
-    display(HTML("<H2>Missing Data Rate by Variable: %s</H2>"%di["name"]))
+def show_missing_data_by_variable(df):
+    display(HTML("<H2>Missing Data Rate by Variable: %s</H2>"%df.name))
     plt.figure(figsize=(10,8))
     df.isnull().mean().plot(kind='barh')
     plt.grid(True)
@@ -87,8 +86,8 @@ def show_missing_data_by_variable(df,di):
     plt.xlabel("Missing data rate")
     plt.show()
     
-def show_missing_data_by_participant(df,di):
-    display(HTML("<H2>Missing Data Rate by Participant: %s</H2>"%di["name"]))    
+def show_missing_data_by_participant(df):
+    display(HTML("<H2>Missing Data Rate by Participant: %s</H2>"%df.name))    
     plt.figure(figsize=(10,20))
     df.isnull().mean(level=0).mean(axis=1).sort_values().plot(kind='barh')
     plt.grid(True)
