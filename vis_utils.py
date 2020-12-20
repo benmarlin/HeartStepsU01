@@ -13,7 +13,10 @@ from . import data_utils
 def plot_summary_histograms(df, dd, cols=3, fields=[]):  
     display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%df.name))
     
-    num_fields = len(list(df.keys()))  
+    num_fields = len(list(df.keys()))
+
+    # temporary skip list
+    skip_list = ['Time Sent', 'Time Received', 'Time Opened', 'Time Completed']
     
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
@@ -25,11 +28,23 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                 df[field].value_counts().plot(kind="bar",ax=this_ax)
                 this_ax.grid(axis='y')
                 this_ax.set_title(field)
+                if ((field == 'Notification') or
+                    (field == 'Morning Message') or
+                    (field == 'Anchor Message')): 
+                    table = df[field].value_counts()
+                    selected_ticks = np.linspace(start=0, stop=(len(table)-1), num=10, dtype=int)
+                    this_ax.set_xticks(selected_ticks)
+                    x_labels = []
+                    for tick in selected_ticks:
+                        shorten_message = table.index[tick][:11] + '...'
+                        x_labels.append(shorten_message)                    
+                    this_ax.set_xticklabels(x_labels)                    
                 i=i+1
             else: 
                 this_ax = axes[i//cols,i%cols]
-                df[field].hist(figure=fig,ax=this_ax)
-                this_ax.grid(True)
+                if field not in skip_list:   
+                    df[field].hist(figure=fig,ax=this_ax)
+                    this_ax.grid(True)
                 this_ax.set_title(field)
                 i=i+1
     plt.tight_layout()
