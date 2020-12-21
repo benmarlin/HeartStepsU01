@@ -53,9 +53,13 @@ def get_df_from_zip(file_type,zip_file, participants):
         sid = get_user_id_from_filename(file_name)
         if(sid in participant_list):
             f = z.open(file_name)
-            df  = pd.read_csv(f)
-            df["Subject ID"] = sid
-            dfs.append(df)
+            file_size = z.getinfo(file_name).file_size
+            if file_size > 0:
+                df  = pd.read_csv(f)
+                df["Subject ID"] = sid
+                dfs.append(df)
+            else:
+                print('warning %s is empty (size = 0)' % file_name)
     df = pd.concat(dfs)
     return(df)
 
