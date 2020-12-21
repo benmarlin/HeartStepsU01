@@ -56,11 +56,11 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     num_fields = len(list(df.keys()))
 
     # temporary skip list
-    skip_list = ['ID', 'Imputed']
+    skip_list = ['ID', 'Imputed', 'request_data', 'response_data']
 
     # shorten_list = list of fields to shorten the x-axis labels
     shorten_list = []
-    search_list  = ['notif', 'message', 'date']
+    search_list  = ['notif', 'message', 'date', 'url', 'request']
     for field in list(df.keys()):
         field_name = str(field).lower()
         for search in search_list:
