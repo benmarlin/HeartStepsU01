@@ -56,7 +56,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     num_fields = len(list(df.keys()))
 
     # temporary skip list
-    skip_list = ['ID', 'Imputed', 'Created Time', 'Decision Time']
+    skip_list = ['ID', 'Imputed']
 
     # shorten_list = list of fields to shorten the x-axis labels
     shorten_list = []
