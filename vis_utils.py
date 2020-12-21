@@ -10,43 +10,102 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
+def parse_time(df, field):
+    parse_array = []
+    for index, value in enumerate(df[field].values):
+        value = str(value)        
+        if value != 'nan':
+            time_array = value.split(':')
+            hh = time_array[0]
+            mm = time_array[1]
+            # keep only hh:mm for now
+            time_string = hh + ':' + mm
+            parse_array.append(time_string)
+    output_df = pd.Series(parse_array)    
+    return output_df
+
+def parse_date_time(df, field):
+    parse_date_array = []
+    for index, value in enumerate(df[field].values):
+        value = str(value)        
+        if value != 'nan':
+            date_time = value.split()
+            date = date_time[0]
+            time = date_time[1]
+            # keep only the date for now
+            value = date
+            parse_date_array.append(value)        
+    output_df = pd.Series(parse_date_array)    
+    return output_df
+
+def shorten_xlabels(this_ax, table):
+    selected_ticks = np.linspace(start=0, stop=(len(table)-1), endpoint=True, num=10, dtype=int)
+    this_ax.set_xticks(selected_ticks)
+    x_labels = []
+    for tick in selected_ticks:
+        shorten_message = table.index[tick][:11]
+        if len(table.index[tick]) > 10:
+            shorten_message += '...'
+        x_labels.append(shorten_message)                    
+    this_ax.set_xticklabels(x_labels)
+    return this_ax
+                    
 def plot_summary_histograms(df, dd, cols=3, fields=[]):  
     display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%df.name))
     
     num_fields = len(list(df.keys()))
 
     # temporary skip list
-    skip_list = ['Time Sent', 'Time Received', 'Time Opened', 'Time Completed']
-    
+    skip_list = ['ID', 'Imputed', 'Created Time', 'Decision Time']
+
+    # shorten_list = list of fields to shorten the x-axis labels
+    shorten_list = []
+    search_list  = ['notif', 'message', 'date']
+    for field in list(df.keys()):
+        field_name = str(field).lower()
+        for search in search_list:
+            if (field_name.find(search) >= 0):
+                shorten_list.append(field)
+                
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
     i=0
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
-            if dd.loc[field]["DataType"] in ["Boolean","String"]:
-                this_ax = axes[i//cols,i%cols]
-                df[field].value_counts().plot(kind="bar",ax=this_ax)
-                this_ax.grid(axis='y')
-                this_ax.set_title(field)
-                if ((field == 'Notification') or
-                    (field == 'Morning Message') or
-                    (field == 'Anchor Message')): 
+
+            field_type = dd.loc[field]["DataType"]
+            #print('field =', field, '\t\t ->', field_type)
+
+            this_ax = axes[i//cols,i%cols]
+            this_ax.set_title(field)
+
+            if field_type in ["Time"]:
+                df_time = parse_time(df, field)
+                table = df_time.value_counts()
+                if len(table) > 1:
+                    table.plot(kind="bar",ax=this_ax)               
+                    this_ax.grid(axis='y')
+                    this_ax = shorten_xlabels(this_ax, table)
+            elif field_type in ["DateTime"]:                                
+                df_datetime = parse_date_time(df, field)
+                table = df_datetime.value_counts()
+                if len(table) > 1:
+                    table.plot(kind="bar",ax=this_ax)               
+                    this_ax.grid(axis='y')
+                    this_ax = shorten_xlabels(this_ax, table)
+            elif field_type in ["Boolean","String","Date"]:
+                if field not in skip_list:
                     table = df[field].value_counts()
-                    selected_ticks = np.linspace(start=0, stop=(len(table)-1), num=10, dtype=int)
-                    this_ax.set_xticks(selected_ticks)
-                    x_labels = []
-                    for tick in selected_ticks:
-                        shorten_message = table.index[tick][:11] + '...'
-                        x_labels.append(shorten_message)                    
-                    this_ax.set_xticklabels(x_labels)                    
-                i=i+1
-            else: 
-                this_ax = axes[i//cols,i%cols]
+                    table.plot(kind="bar",ax=this_ax)
+                    this_ax.grid(axis='y')
+                    if field in shorten_list:
+                        this_ax = shorten_xlabels(this_ax, table)
+            else:                 
                 if field not in skip_list:   
                     df[field].hist(figure=fig,ax=this_ax)
                     this_ax.grid(True)
-                this_ax.set_title(field)
-                i=i+1
+                    
+            i=i+1
     plt.tight_layout()
     plt.show()
 
