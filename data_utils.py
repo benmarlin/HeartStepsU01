@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import os
 import zipfile
+from datetime import datetime, timedelta
 
 study_prefix = "U01"
 
@@ -71,8 +72,31 @@ def fix_df_column_types(df, dd):
         if dd.loc[field]["DataType"] in ["Boolean","String"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
         elif dd.loc[field]["DataType"] in ["Time"]:
-            field_type = dd.loc[field]["DataType"]
+            # example: 05:53:00
+            #print('df[field].values =', df[field].values)
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
+        elif dd.loc[field]["DataType"] in ["DateTime"]:
+            # support for different DateTime format
+            all_nan = True
+            for index, value in enumerate(df[field].values):
+                value = str(value)
+                if value.lower() != "nan":
+                    all_nan = False
+                    position = value.find(' -')
+                    if position > 0:
+                        # example: 2020-12-01 05:24 -0800
+                        value = datetime.strptime(value, "%Y-%m-%d %H:%M %z")
+                        # TODO: add time zone
+                    else:
+                        # example: 2020-11-20 06:00:1605852018 or 2020-09-03 12:25:38
+                        value = datetime.strptime(value[:19], "%Y-%m-%d %H:%M:%S")
+                    time_string = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
+                    df[field].values[index] = time_string
+            if all_nan:
+                df[field] = df[field].map(lambda x: str(x))
+            else:
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
+            #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))           
     return(df)
 
 def get_participant_info(data_catalog):

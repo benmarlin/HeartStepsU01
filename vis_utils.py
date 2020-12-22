@@ -10,22 +10,6 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def parse_date_time(input_df, df):
-    parse_date_array = []
-    for value in input_df.values:
-        value = str(value)         
-        if value != 'nan':
-            date_time = value.split()
-            date = date_time[0]
-            time_array = date_time[1].split(':')
-            hh = time_array[0]
-            mm = time_array[1]
-            # keep only the time for now
-            value = hh + ':' + mm
-            parse_date_array.append(value)        
-    output_df = pd.Series(parse_date_array)    
-    return output_df
-
 def parse_url(input_df):
     options = ['decision', 'nightly', 'initialize']
     parse_date_array = []
@@ -82,18 +66,11 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             this_ax = axes[i//cols,i%cols]
             this_ax.set_title(field)
 
-            if field_type in ["Time"]:
+            if field_type in ["Time", "DateTime"]:
                 # plot histogram, one bin per half hour of the day
                 df_time = df[field] / pd.Timedelta(minutes=60)
                 df_time.hist(figure=fig, ax=this_ax, bins=48)
-                this_ax.set_xlim(0,24)                
-            elif field_type in ["DateTime"]:                                
-                df_datetime = parse_date_time(df[field], df)
-                table = df_datetime.value_counts()
-                if len(table) > 1:
-                    table.plot(kind="bar",ax=this_ax)               
-                    this_ax.grid(axis='y')
-                    this_ax = shorten_xlabels(this_ax, table)
+                this_ax.set_xlim(0,24)
             elif field_type in ["Boolean","String","Date"]:
                 if field not in skip_list:
                     if field == 'url':
@@ -108,8 +85,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             else:                 
                 if field not in skip_list:   
                     df[field].hist(figure=fig,ax=this_ax)
-                    this_ax.grid(True)
-                    
+                    this_ax.grid(True)                    
             i=i+1
     plt.tight_layout()
     plt.show()
