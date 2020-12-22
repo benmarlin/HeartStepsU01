@@ -31,9 +31,11 @@ def parse_date_time(input_df):
         if value != 'nan':
             date_time = value.split()
             date = date_time[0]
-            time = date_time[1]
-            # keep only the date for now
-            value = date
+            time_array = date_time[1].split(':')
+            hh = time_array[0]
+            mm = time_array[1]
+            # keep only the time for now
+            value = hh + ':' + mm
             parse_date_array.append(value)        
     output_df = pd.Series(parse_date_array)    
     return output_df
