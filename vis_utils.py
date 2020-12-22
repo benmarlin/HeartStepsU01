@@ -10,9 +10,9 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def parse_time(df, field):
+def parse_time(input_df):
     parse_array = []
-    for index, value in enumerate(df[field].values):
+    for index, value in enumerate(input_df.values):
         value = str(value)        
         if value != 'nan':
             time_array = value.split(':')
@@ -24,9 +24,9 @@ def parse_time(df, field):
     output_df = pd.Series(parse_array)    
     return output_df
 
-def parse_date_time(df, field):
+def parse_date_time(input_df):
     parse_date_array = []
-    for index, value in enumerate(df[field].values):
+    for index, value in enumerate(input_df.values):
         value = str(value)        
         if value != 'nan':
             date_time = value.split()
@@ -35,6 +35,20 @@ def parse_date_time(df, field):
             # keep only the date for now
             value = date
             parse_date_array.append(value)        
+    output_df = pd.Series(parse_date_array)    
+    return output_df
+
+def parse_url(input_df):
+    options = ['decision', 'nightly', 'initialize']
+    parse_date_array = []
+    for index, value in enumerate(input_df.values):
+        value = str(value).lower()
+        candidate = 'other'
+        for option in options:
+            if (value.find(option) >= 0):
+                candidate = option
+                break
+        parse_date_array.append(candidate)        
     output_df = pd.Series(parse_date_array)    
     return output_df
 
@@ -66,6 +80,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
         for search in search_list:
             if (field_name.find(search) >= 0):
                 shorten_list.append(field)
+                break
                 
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
@@ -80,14 +95,14 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             this_ax.set_title(field)
 
             if field_type in ["Time"]:
-                df_time = parse_time(df, field)
+                df_time = parse_time(df[field])
                 table = df_time.value_counts()
                 if len(table) > 1:
                     table.plot(kind="bar",ax=this_ax)               
                     this_ax.grid(axis='y')
                     this_ax = shorten_xlabels(this_ax, table)
             elif field_type in ["DateTime"]:                                
-                df_datetime = parse_date_time(df, field)
+                df_datetime = parse_date_time(df[field])
                 table = df_datetime.value_counts()
                 if len(table) > 1:
                     table.plot(kind="bar",ax=this_ax)               
@@ -95,7 +110,11 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     this_ax = shorten_xlabels(this_ax, table)
             elif field_type in ["Boolean","String","Date"]:
                 if field not in skip_list:
-                    table = df[field].value_counts()
+                    if field == 'url':
+                        df_url = parse_url(df[field])
+                        table = df_url.value_counts()
+                    else:
+                        table = df[field].value_counts()
                     table.plot(kind="bar",ax=this_ax)
                     this_ax.grid(axis='y')
                     if field in shorten_list:
