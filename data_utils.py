@@ -3,6 +3,7 @@ import pandas as pd
 import os
 import zipfile
 from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 study_prefix = "U01"
 
@@ -43,7 +44,7 @@ def get_df_from_zip(file_type,zip_file, participants):
     participant_list = list(participants["Participant ID"])
 
     #Open data zip file
-    z     = zipfile.ZipFile(zip_file)
+    z = zipfile.ZipFile(zip_file)
     
     #Get list of files of specified type
     file_list = get_file_names_from_zip(z, file_type=file_type)
@@ -70,19 +71,23 @@ def fix_df_column_types(df, dd):
     #indicate missing data.
     for field in list(df.keys()):        
         if dd.loc[field]["DataType"] in ["Boolean","String"]:
-            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
+            if field == 'url':
+                urls = df[field].values
+                for index, url in enumerate(urls):
+                    parsed = urlparse(url)
+                    df[field].values[index] = parsed.path[1:]
+            else:
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))                    
         elif dd.loc[field]["DataType"] in ["Time"]:
-            # example: 05:53:00
-            #print('df[field].values =', df[field].values)
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
         elif dd.loc[field]["DataType"] in ["DateTime"]:
-            # support for different DateTime format
+            #Support for different DateTime format
             all_nan = True
             for index, value in enumerate(df[field].values):
                 value = str(value)
                 if value.lower() != "nan":
                     all_nan = False
-                    # only use hours and minutes for now
+                    #Only use hours and minutes for now
                     value = datetime.strptime(value[:16], "%Y-%m-%d %H:%M")
                     time_delta = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
                     df[field].values[index] = time_delta

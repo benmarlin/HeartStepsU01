@@ -10,20 +10,6 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def parse_url(input_df):
-    options = ['decision', 'nightly', 'initialize']
-    parse_date_array = []
-    for index, value in enumerate(input_df.values):
-        value = str(value).lower()
-        candidate = 'other'
-        for option in options:
-            if (value.find(option) >= 0):
-                candidate = option
-                break
-        parse_date_array.append(candidate)        
-    output_df = pd.Series(parse_date_array)    
-    return output_df
-
 def shorten_xlabels(this_ax, table):
     selected_ticks = np.linspace(start=0, stop=(len(table)-1), endpoint=True, num=10, dtype=int)
     this_ax.set_xticks(selected_ticks)
@@ -41,10 +27,10 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     
     num_fields = len(list(df.keys()))
 
-    # temporary skip list
+    #Temporary skip list
     skip_list = ['ID', 'Imputed', 'request_data', 'response_data']
 
-    # shorten_list = list of fields to shorten the x-axis labels
+    #Shorten_list = list of fields to shorten the x-axis labels
     shorten_list = []
     search_list  = ['notif', 'message', 'date', 'url', 'request']
     for field in list(df.keys()):
@@ -59,32 +45,24 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     i=0
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
-
-            field_type = dd.loc[field]["DataType"]
-            #print('field =', field, '\t\t ->', field_type)
-
             this_ax = axes[i//cols,i%cols]
             this_ax.set_title(field)
-
+            field_type = dd.loc[field]["DataType"]
             if field_type in ["Time", "DateTime"]:
-                # plot histogram, one bin per half hour of the day
+                #Plot histogram, one bin per half hour of the day
                 df_time = df[field] / pd.Timedelta(minutes=60)
                 df_time.hist(figure=fig, ax=this_ax, bins=48)
                 this_ax.set_xlim(0,24)
-            elif field_type in ["Boolean","String","Date"]:
+            elif field_type in ["Boolean", "String", "Date"]:
                 if field not in skip_list:
-                    if field == 'url':
-                        df_url = parse_url(df[field])
-                        table = df_url.value_counts()
-                    else:
-                        table = df[field].value_counts()
-                    table.plot(kind="bar",ax=this_ax)
+                    table = df[field].value_counts()
+                    table.plot(kind="bar", ax=this_ax)
                     this_ax.grid(axis='y')
                     if field in shorten_list:
                         this_ax = shorten_xlabels(this_ax, table)
             else:                 
                 if field not in skip_list:   
-                    df[field].hist(figure=fig,ax=this_ax)
+                    df[field].hist(figure=fig, ax=this_ax)
                     this_ax.grid(True)                    
             i=i+1
     plt.tight_layout()
