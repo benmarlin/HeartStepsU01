@@ -82,16 +82,10 @@ def fix_df_column_types(df, dd):
                 value = str(value)
                 if value.lower() != "nan":
                     all_nan = False
-                    position = value.find(' -')
-                    if position > 0:
-                        # example: 2020-12-01 05:24 -0800
-                        value = datetime.strptime(value, "%Y-%m-%d %H:%M %z")
-                        # TODO: add time zone
-                    else:
-                        # example: 2020-11-20 06:00:1605852018 or 2020-09-03 12:25:38
-                        value = datetime.strptime(value[:19], "%Y-%m-%d %H:%M:%S")
-                    time_string = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
-                    df[field].values[index] = time_string
+                    # only use hours and minutes for now
+                    value = datetime.strptime(value[:16], "%Y-%m-%d %H:%M")
+                    time_delta = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
+                    df[field].values[index] = time_delta
             if all_nan:
                 df[field] = df[field].map(lambda x: str(x))
             else:
