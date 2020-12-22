@@ -10,13 +10,13 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def shorten_xlabels(this_ax, table):
+def shorten_xlabels(this_ax, table, length_limit):
     selected_ticks = np.linspace(start=0, stop=(len(table)-1), endpoint=True, num=10, dtype=int)
     this_ax.set_xticks(selected_ticks)
     x_labels = []
     for tick in selected_ticks:
-        shorten_message = table.index[tick][:11]
-        if len(table.index[tick]) > 10:
+        shorten_message = table.index[tick][:(length_limit+1)]
+        if len(table.index[tick]) > length_limit:
             shorten_message += '...'
         x_labels.append(shorten_message)                    
     this_ax.set_xticklabels(x_labels)
@@ -24,46 +24,40 @@ def shorten_xlabels(this_ax, table):
                     
 def plot_summary_histograms(df, dd, cols=3, fields=[]):  
     display(HTML("<H2>Summary Histograms by Variable: %s</H2>"%df.name))
-    
-    num_fields = len(list(df.keys()))
-
-    #Temporary skip list
-    skip_list = ['ID', 'Imputed', 'request_data', 'response_data']
-
-    #Shorten_list = list of fields to shorten the x-axis labels
-    shorten_list = []
-    search_list  = ['notif', 'message', 'date', 'url', 'request']
-    for field in list(df.keys()):
-        field_name = str(field).lower()
-        for search in search_list:
-            if (field_name.find(search) >= 0):
-                shorten_list.append(field)
-                break
-                
+    num_fields = len(list(df.keys()))                
     rows = int(np.ceil(num_fields/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
     i=0
     for field in list(df.keys()):
-        if(field in fields or len(fields)==0):
+        if(field in fields or len(fields)==0):            
             this_ax = axes[i//cols,i%cols]
-            this_ax.set_title(field)
-            field_type = dd.loc[field]["DataType"]
+            this_ax.set_title(field)            
+            field_type = dd.loc[field]["DataType"]            
             if field_type in ["Time", "DateTime"]:
                 #Plot histogram, one bin per half hour of the day
                 df_time = df[field] / pd.Timedelta(minutes=60)
                 df_time.hist(figure=fig, ax=this_ax, bins=48)
                 this_ax.set_xlim(0,24)
-            elif field_type in ["Boolean", "String", "Date"]:
-                if field not in skip_list:
-                    table = df[field].value_counts()
-                    table.plot(kind="bar", ax=this_ax)
-                    this_ax.grid(axis='y')
-                    if field in shorten_list:
-                        this_ax = shorten_xlabels(this_ax, table)
-            else:                 
-                if field not in skip_list:   
-                    df[field].hist(figure=fig, ax=this_ax)
-                    this_ax.grid(True)                    
+            else:
+                str_values = [str(value).lower() for value in df[field].values]
+                check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
+                if not check_all_nan:
+                    if field_type in ["Boolean", "String", "Date"]:                   
+                        table = df[field].value_counts()
+                        #Plot table if it is not too big
+                        if len(table) < 300:                 
+                            table.plot(kind="bar", ax=this_ax)
+                            this_ax.grid(axis='y')
+                            #Shorten xlabels if they are too long
+                            max_length_limit = 9
+                            current_max_length = 0
+                            if (field_type == "String") or (field_type == "Date"):
+                                current_max_length = max([len(str(value)) for value in df[field].values])
+                            if current_max_length > max_length_limit:
+                                this_ax = shorten_xlabels(this_ax, table, max_length_limit)   
+                    else:                 
+                        df[field].hist(figure=fig, ax=this_ax)
+                        this_ax.grid(True)                    
             i=i+1
     plt.tight_layout()
     plt.show()
