@@ -10,24 +10,10 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
-def parse_time(input_df):
-    parse_array = []
-    for index, value in enumerate(input_df.values):
-        value = str(value)        
-        if value != 'nan':
-            time_array = value.split(':')
-            hh = time_array[0]
-            mm = time_array[1]
-            # keep only hh:mm for now
-            time_string = hh + ':' + mm
-            parse_array.append(time_string)
-    output_df = pd.Series(parse_array)    
-    return output_df
-
-def parse_date_time(input_df):
+def parse_date_time(input_df, df):
     parse_date_array = []
-    for index, value in enumerate(input_df.values):
-        value = str(value)        
+    for value in input_df.values:
+        value = str(value)         
         if value != 'nan':
             date_time = value.split()
             date = date_time[0]
@@ -97,14 +83,12 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             this_ax.set_title(field)
 
             if field_type in ["Time"]:
-                df_time = parse_time(df[field])
-                table = df_time.value_counts()
-                if len(table) > 1:
-                    table.plot(kind="bar",ax=this_ax)               
-                    this_ax.grid(axis='y')
-                    this_ax = shorten_xlabels(this_ax, table)
+                # plot histogram, one bin per half hour of the day
+                df_time = df[field] / pd.Timedelta(minutes=60)
+                df_time.hist(figure=fig, ax=this_ax, bins=48)
+                this_ax.set_xlim(0,24)                
             elif field_type in ["DateTime"]:                                
-                df_datetime = parse_date_time(df[field])
+                df_datetime = parse_date_time(df[field], df)
                 table = df_datetime.value_counts()
                 if len(table) > 1:
                     table.plot(kind="bar",ax=this_ax)               

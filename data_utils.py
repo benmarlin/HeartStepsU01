@@ -67,11 +67,12 @@ def fix_df_column_types(df, dd):
     #Set Boolean/String fields to string type to prevent
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
-    for field in list(df.keys()):
-        
+    for field in list(df.keys()):        
         if dd.loc[field]["DataType"] in ["Boolean","String"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
-
+        elif dd.loc[field]["DataType"] in ["Time"]:
+            field_type = dd.loc[field]["DataType"]
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
     return(df)
 
 def get_participant_info(data_catalog):
