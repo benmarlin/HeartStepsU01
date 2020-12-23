@@ -42,20 +42,18 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                 str_values = [str(value).lower() for value in df[field].values]
                 check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
                 if not check_all_nan:
-                    if field_type in ["Boolean", "String", "Date"]:                   
+                    if field_type in ["Boolean", "String"]:                   
                         table = df[field].value_counts()
                         #Plot table if it is not too big
                         if len(table) < 300:                 
                             table.plot(kind="bar", ax=this_ax)
                             this_ax.grid(axis='y')
                             #Shorten xlabels if they are too long
-                            max_length_limit = 9
-                            current_max_length = 0
-                            if (field_type == "String") or (field_type == "Date"):
-                                current_max_length = max([len(str(value)) for value in df[field].values])
+                            max_length_limit = 10
+                            current_max_length = max([len(str(value)) for value in df[field].values])
                             if current_max_length > max_length_limit:
-                                this_ax = shorten_xlabels(this_ax, table, max_length_limit)   
-                    else:                 
+                                this_ax = shorten_xlabels(this_ax, table, max_length_limit)
+                    else:
                         df[field].hist(figure=fig, ax=this_ax)
                         this_ax.grid(True)                    
             i=i+1

@@ -80,6 +80,9 @@ def fix_df_column_types(df, dd):
                 df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))                    
         elif dd.loc[field]["DataType"] in ["Time"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
+        elif dd.loc[field]["DataType"] in ["Date"]:
+            for index, value in enumerate(df[field].values):
+               df[field].values[index] = datetime.strptime(value, "%Y-%m-%d")
         elif dd.loc[field]["DataType"] in ["DateTime"]:
             #Support for different DateTime format
             all_nan = True
