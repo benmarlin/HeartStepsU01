@@ -29,10 +29,10 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
     i=0
     for field in list(df.keys()):
-        if(field in fields or len(fields)==0):            
+        if(field in fields or len(fields)==0):
             this_ax = axes[i//cols,i%cols]
             this_ax.set_title(field)            
-            field_type = dd.loc[field]["DataType"]            
+            field_type = dd.loc[field]["DataType"]
             if field_type in ["Time", "DateTime"]:
                 #Plot histogram, one bin per half hour of the day
                 df_time = df[field] / pd.Timedelta(minutes=60)
@@ -57,6 +57,10 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                         df[field].hist(figure=fig, ax=this_ax)
                         this_ax.grid(True)                    
             i=i+1
+    while (i < (rows*cols)):
+        this_ax = axes[i//cols,i%cols]
+        fig.delaxes(this_ax)
+        i=i+1
     plt.tight_layout()
     plt.show()
 

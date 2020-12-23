@@ -69,7 +69,7 @@ def fix_df_column_types(df, dd):
     #Set Boolean/String fields to string type to prevent
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
-    for field in list(df.keys()):        
+    for field in list(df.keys()):
         if dd.loc[field]["DataType"] in ["Boolean","String"]:
             if field == 'url':
                 urls = df[field].values
@@ -84,7 +84,7 @@ def fix_df_column_types(df, dd):
             for index, value in enumerate(df[field].values):
                df[field].values[index] = datetime.strptime(value, "%Y-%m-%d")
         elif dd.loc[field]["DataType"] in ["DateTime"]:
-            #Support for different DateTime format
+            #Support for different DateTime formats
             all_nan = True
             for index, value in enumerate(df[field].values):
                 value = str(value)
@@ -92,13 +92,12 @@ def fix_df_column_types(df, dd):
                     all_nan = False
                     #Only use hours and minutes for now
                     value = datetime.strptime(value[:16], "%Y-%m-%d %H:%M")
-                    time_delta = timedelta(hours=value.hour, minutes=value.minute, seconds=value.second)
-                    df[field].values[index] = time_delta
+                    df[field].values[index] = timedelta(hours=value.hour, minutes=value.minute)
             if all_nan:
                 df[field] = df[field].map(lambda x: str(x))
             else:
                 df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
-            #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))           
+            #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))
     return(df)
 
 def get_participant_info(data_catalog):
