@@ -70,7 +70,8 @@ def fix_df_column_types(df, dd):
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
     for field in list(df.keys()):
-        if dd.loc[field]["DataType"] in ["Boolean","String"]:
+        dd_type = dd.loc[field]["DataType"]
+        if dd_type in ["Boolean","String"]:
             if field == 'url':
                 urls = df[field].values
                 for index, url in enumerate(urls):
@@ -78,25 +79,18 @@ def fix_df_column_types(df, dd):
                     df[field].values[index] = parsed.path[1:]
             else:
                 df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))                    
-        elif dd.loc[field]["DataType"] in ["Time"]:
+        elif dd_type in ["Time"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
-        elif dd.loc[field]["DataType"] in ["Date"]:
-            for index, value in enumerate(df[field].values):
-               df[field].values[index] = datetime.strptime(value, "%Y-%m-%d")
-        elif dd.loc[field]["DataType"] in ["DateTime"]:
-            #Support for different DateTime formats
-            all_nan = True
-            for index, value in enumerate(df[field].values):
-                value = str(value)
-                if value.lower() != "nan":
-                    all_nan = False
-                    #Only use hours and minutes for now
-                    value = datetime.strptime(value[:16], "%Y-%m-%d %H:%M")
-                    df[field].values[index] = timedelta(hours=value.hour, minutes=value.minute)
-            if all_nan:
-                df[field] = df[field].map(lambda x: str(x))
-            else:
-                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
+        elif dd_type in ["Date"]:
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else datetime.strptime(x, "%Y-%m-%d"))
+        elif dd_type in ["DateTime"]:
+            #Keep only time for now
+            max_length = max([len(str(x).split(':')[-1]) for x in df[field].values]) # length of last item after ':'
+            if max_length < 6: # this includes time with AM/PM
+                df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else pd.to_timedelta(x[11:]))
+            else: # for example: 2020-06-12 23:00:1592002802
+                df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else
+                                          pd.to_timedelta(pd.to_datetime(x[:16]).strftime("%H:%M:%S")))  
             #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))
     return(df)
 
