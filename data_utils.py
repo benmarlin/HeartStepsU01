@@ -89,9 +89,9 @@ def fix_df_column_types(df, dd):
             #Keep only time for now
             max_length = max([len(str(x).split(':')[-1]) for x in df[field].values]) # length of last item after ':'
             if max_length < 6: # this includes time with AM/PM
-                df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else pd.to_timedelta(x[11:]))
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x[11:]))
             else: # for example: 2020-06-12 23:00:1592002802
-                df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else
                                           pd.to_timedelta(pd.to_datetime(x[:16]).strftime("%H:%M:%S")))  
             #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))
     return(df)

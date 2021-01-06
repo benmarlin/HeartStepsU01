@@ -33,15 +33,15 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             this_ax = axes[i//cols,i%cols]
             this_ax.set_title(field)            
             field_type = dd.loc[field]["DataType"]
-            if field_type in ["Time", "DateTime"]:
-                #Plot histogram, one bin per half hour of the day
-                df_time = df[field] / pd.Timedelta(minutes=60)
-                df_time.hist(figure=fig, ax=this_ax, bins=48)
-                this_ax.set_xlim(0,24)
-            else:
-                str_values = [str(value).lower() for value in df[field].values]
-                check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
-                if not check_all_nan:
+            str_values = [str(value).lower() for value in df[field].values]
+            check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
+            if not check_all_nan:                    
+                if field_type in ["Time", "DateTime"]:                         
+                    #Plot histogram, one bin per half hour of the day
+                    df_time = df[field] / pd.Timedelta(minutes=60)
+                    df_time.hist(figure=fig, ax=this_ax, bins=48)
+                    this_ax.set_xlim(0,24)
+                else:
                     if field_type in ["Boolean", "String", "Ordinal"]:                   
                         table = df[field].value_counts()
                         #Plot table if it is not too big
