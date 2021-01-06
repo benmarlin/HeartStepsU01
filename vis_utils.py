@@ -64,7 +64,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     plt.tight_layout()
     plt.show()
 
-def plot_indifivual_time_series(df,variable,subject_id):
+def plot_individual_time_series(df,variable,subject_id):
     this_df = df.xs(subject_id, level=0, axis=0, drop_level=True)
     this_df[variable].plot(kind='bar', grid=True, figsize=(12,4) )
     plt.title("Subject %s: %s"%(subject_id,variable))
@@ -72,9 +72,11 @@ def plot_indifivual_time_series(df,variable,subject_id):
 
 def show_individual_time_series_visualizer(df):
     sids=data_utils.get_subject_ids(df)
-    vars=data_utils.get_variables(df)
-    interact(plot_indifivual_time_series, df=fixed(df), subject_id=sids,variable = vars);
-  
+    variables=data_utils.get_variables(df)
+    if (len(variables) > 0):
+        interact(plot_individual_time_series, df=fixed(df), subject_id=sids, variable=variables)
+    else:
+        print('no variable to display')
   
 def show_summary_table(df):
     subjects = data_utils.get_subject_ids(df)
@@ -135,3 +137,15 @@ def show_data_selector(data_dir):
     )
     display(w)
     return(w)
+
+def show_catalog_selector(catalog_file):
+    catalogs = data_utils.get_catalogs(catalog_file) 
+    w=widgets.Dropdown(
+        options=catalogs,
+        value=catalogs[0],
+        description='Catalog:',
+        disabled=False,
+    )
+    display(w)
+    return(w)
+    

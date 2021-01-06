@@ -94,8 +94,6 @@ def fix_df_column_types(df, dd):
                 df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else
                                           pd.to_timedelta(pd.to_datetime(x[:16]).strftime("%H:%M:%S")))  
             #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))
-        else:
-            print('found undefined type: ' + str(dd_type))            
     return(df)
 
 def get_participant_info(data_catalog):
@@ -127,3 +125,10 @@ def get_variables(df):
     numerical_types = [np.dtype('int64'), np.dtype('float64')]
     cols = [c for c in list(df.columns) if df.dtypes[c] in numerical_types]
     return(cols)
+
+def get_catalogs(catalog_file):
+    df = pd.read_csv(catalog_file)
+    df = df["Data Product Name"]
+    df = df[df.values != "Participant Information"]
+    return list(df)
+
