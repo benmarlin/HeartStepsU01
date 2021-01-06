@@ -2,6 +2,8 @@ import numpy as np
 import pandas as pd
 import os
 import zipfile
+from datetime import datetime, timedelta
+from urllib.parse import urlparse
 
 study_prefix = "U01"
 
@@ -42,7 +44,7 @@ def get_df_from_zip(file_type,zip_file, participants):
     participant_list = list(participants["Participant ID"])
 
     #Open data zip file
-    z     = zipfile.ZipFile(zip_file)
+    z = zipfile.ZipFile(zip_file)
     
     #Get list of files of specified type
     file_list = get_file_names_from_zip(z, file_type=file_type)
@@ -53,9 +55,13 @@ def get_df_from_zip(file_type,zip_file, participants):
         sid = get_user_id_from_filename(file_name)
         if(sid in participant_list):
             f = z.open(file_name)
-            df  = pd.read_csv(f)
-            df["Subject ID"] = sid
-            dfs.append(df)
+            file_size = z.getinfo(file_name).file_size
+            if file_size > 0:
+                df  = pd.read_csv(f)
+                df["Subject ID"] = sid
+                dfs.append(df)
+            else:
+                print('warning %s is empty (size = 0)' % file_name)
     df = pd.concat(dfs)
     return(df)
 
@@ -64,10 +70,28 @@ def fix_df_column_types(df, dd):
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
     for field in list(df.keys()):
-        
-        if dd.loc[field]["DataType"] in ["Boolean","String"]:
-            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
-
+        dd_type = dd.loc[field]["DataType"]
+        if dd_type in ["Boolean","String"]:
+            if field == 'url':
+                urls = df[field].values
+                for index, url in enumerate(urls):
+                    parsed = urlparse(url)
+                    df[field].values[index] = parsed.path[1:]
+            else:
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))                    
+        elif dd_type in ["Time"]:
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
+        elif dd_type in ["Date"]:
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else datetime.strptime(x, "%Y-%m-%d"))
+        elif dd_type in ["DateTime"]:
+            #Keep only time for now
+            max_length = max([len(str(x).split(':')[-1]) for x in df[field].values]) # length of last item after ':'
+            if max_length < 6: # this includes time with AM/PM
+                df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else pd.to_timedelta(x[11:]))
+            else: # for example: 2020-06-12 23:00:1592002802
+                df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else
+                                          pd.to_timedelta(pd.to_datetime(x[:16]).strftime("%H:%M:%S")))  
+            #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))
     return(df)
 
 def get_participant_info(data_catalog):
