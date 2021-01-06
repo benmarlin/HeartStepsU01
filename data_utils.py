@@ -78,7 +78,9 @@ def fix_df_column_types(df, dd):
                     parsed = urlparse(url)
                     df[field].values[index] = parsed.path[1:]
             else:
-                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))                    
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
+        elif dd_type in ["Ordinal"]:
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(int(x)))
         elif dd_type in ["Time"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
         elif dd_type in ["Date"]:
@@ -92,6 +94,8 @@ def fix_df_column_types(df, dd):
                 df[field] = df[field].map(lambda x: str(x) if str(x).lower()=="nan" else
                                           pd.to_timedelta(pd.to_datetime(x[:16]).strftime("%H:%M:%S")))  
             #print('\n%s nlargest(10) =\n%s' % (field, df[field].value_counts().nlargest(10)))
+        else:
+            print('found undefined type: ' + str(dd_type))            
     return(df)
 
 def get_participant_info(data_catalog):

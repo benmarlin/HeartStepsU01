@@ -42,7 +42,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                 str_values = [str(value).lower() for value in df[field].values]
                 check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
                 if not check_all_nan:
-                    if field_type in ["Boolean", "String"]:                   
+                    if field_type in ["Boolean", "String", "Ordinal"]:                   
                         table = df[field].value_counts()
                         #Plot table if it is not too big
                         if len(table) < 300:                 
