@@ -40,6 +40,8 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     #Plot histogram, one bin per half hour of the day
                     df_time = df[field] / pd.Timedelta(minutes=60)
                     df_time.hist(figure=fig, ax=this_ax, bins=48)
+                    hours = [str(i) + ':00' for i in range(0,24,5)]
+                    this_ax.set_xticklabels(hours)
                     this_ax.set_xlim(0,24)
                 else:
                     if field_type in ["Boolean", "String", "Ordinal"]:
