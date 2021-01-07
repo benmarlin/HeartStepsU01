@@ -42,7 +42,10 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     df_time.hist(figure=fig, ax=this_ax, bins=48)
                     this_ax.set_xlim(0,24)
                 else:
-                    if field_type in ["Boolean", "String", "Ordinal"]:                   
+                    if field_type in ["Boolean", "String", "Ordinal"]:
+                        #Pandas automatically converts int into float, thus convert back to int for plot
+                        if field_type in ["Ordinal"]:
+                            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(int(x)))
                         table = df[field].value_counts()
                         #Plot table if it is not too big
                         if len(table) < 300:                 

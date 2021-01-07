@@ -80,7 +80,7 @@ def fix_df_column_types(df, dd):
             else:
                 df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
         elif dd_type in ["Ordinal"]:
-            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(int(x)))
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else int(x))
         elif dd_type in ["Time"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
         elif dd_type in ["Date"]:
