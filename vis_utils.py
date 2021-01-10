@@ -31,11 +31,19 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
             this_ax = axes[i//cols,i%cols]
-            this_ax.set_title(field)            
-            field_type = dd.loc[field]["DataType"]
+            this_ax.set_title(field)
             str_values = [str(value).lower() for value in df[field].values]
             check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
-            if not check_all_nan:                    
+            if not check_all_nan:
+                if field.find('___') > 0:
+                    field_type = "baseline_extra"
+
+                    print('dd.columns =', dd.columns)
+                    print('df.columns =', df.columns)
+                    print('=========================================')
+                    
+                else:
+                    field_type = dd.loc[field]["DataType"]
                 if field_type in ["Time", "DateTime"]:                         
                     #Plot histogram, one bin per half hour of the day
                     df_time = df[field] / pd.Timedelta(minutes=60)
@@ -58,9 +66,9 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                             current_max_length = max([len(str(value)) for value in df[field].values])
                             if current_max_length > max_length_limit:
                                 this_ax = shorten_xlabels(this_ax, table, max_length_limit)
-                    else:
+                    else:                        
                         df[field].hist(figure=fig, ax=this_ax)
-                        this_ax.grid(True)                    
+                        this_ax.grid(True)                        
             i=i+1
     while (i < (rows*cols)):
         this_ax = axes[i//cols,i%cols]
@@ -83,10 +91,10 @@ def show_individual_time_series_visualizer(df):
     else:
         print('no variable to display')
   
-def show_summary_table(df):
-    subjects = data_utils.get_subject_ids(df)
+def show_summary_table(df, b_isbaseline=False):   
+    subjects = data_utils.get_subject_ids(df, b_isbaseline)
     cols     = list(df.columns)
-
+    
     subjects_str=", ".join(subjects)
     cols_str = ", ".join(list(df.columns))
 
@@ -114,7 +122,10 @@ def show_data_dictionary(dd):
 
 def show_missing_data_by_variable(df):
     display(HTML("<H2>Missing Data Rate by Variable: %s</H2>"%df.name))
-    plt.figure(figsize=(10,8))
+    if df.shape[1] < 100:
+        plt.figure(figsize=(10,8))
+    else:
+        plt.figure(figsize=(10,30))
     df.isnull().mean().plot(kind='barh')
     plt.grid(True)
     plt.xlim(0,1)

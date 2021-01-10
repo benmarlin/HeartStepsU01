@@ -116,9 +116,21 @@ def load_data(data_catalog, data_product):
     df = df.sort_index(level=0)
     df.name = data_dictionary.name
     return(df)
-    
-def get_subject_ids(df):
-    sids = list(df.index.levels[0])
+
+def load_baseline(data_catalog, data_product, filename):
+    data_dictionary = get_data_dictionary(data_catalog, data_product)
+    df = pd.read_csv(filename)    
+    index = [x.strip() for x in data_dictionary.index_fields.split(";")]
+    df = df.set_index(index)
+    df.sort_index(level=0)
+    df.name = data_dictionary.name
+    return(df)
+        
+def get_subject_ids(df, b_isbaseline=False):
+    if b_isbaseline:
+        sids = df.index.astype(str)
+    else:
+        sids = list(df.index.levels[0])    
     return list(sids)
 
 def get_variables(df): 
@@ -130,5 +142,6 @@ def get_catalogs(catalog_file):
     df = pd.read_csv(catalog_file)
     df = df["Data Product Name"]
     df = df[df.values != "Participant Information"]
+    df = df[df.values != "Baseline Survey"]
     return list(df)
 
