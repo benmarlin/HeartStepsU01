@@ -36,12 +36,13 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
             if not check_all_nan:
                 if field.find('___') > 0:
-                    field_type = "baseline_extra"
-
-                    print('dd.columns =', dd.columns)
-                    print('df.columns =', df.columns)
-                    print('=========================================')
-                    
+                    field_type = "Boolean"
+                    #Shorten title if it is too long
+                    title = field.replace('___', '\n')
+                    max_length_limit = 50
+                    if len(title) > max_length_limit:
+                        title = title[:max_length_limit] + str('...')
+                    this_ax.set_title(title)                   
                 else:
                     field_type = dd.loc[field]["DataType"]
                 if field_type in ["Time", "DateTime"]:                         
@@ -91,7 +92,7 @@ def show_individual_time_series_visualizer(df):
     else:
         print('no variable to display')
   
-def show_summary_table(df, b_isbaseline=False):   
+def show_summary_table(df, b_isbaseline=False):
     subjects = data_utils.get_subject_ids(df, b_isbaseline)
     cols     = list(df.columns)
     

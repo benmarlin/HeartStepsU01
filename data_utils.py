@@ -70,7 +70,25 @@ def fix_df_column_types(df, dd):
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
     for field in list(df.keys()):
-        dd_type = dd.loc[field]["DataType"]
+        pos = field.find('___')
+        if pos > 0:
+            #Get the checkbox value after '___'
+            checkbox = int(field[pos+3:])
+            shorten_field = str(field)[:pos]
+            notes = dd.loc[shorten_field]["Notes"].split('|')
+            current_value = ''
+            for item in notes:
+                item = item.split(',')                
+                key = int(item[0])
+                value = str(item[1]).strip()
+                if checkbox == key:
+                    current_value = value
+            new_name = shorten_field + '___' + current_value
+            df = df.rename(columns={field: new_name})
+            dd_type = 'Checkbox'
+        else:    
+            dd_type = dd.loc[field]["DataType"]
+            
         if dd_type in ["Boolean","String"]:
             if field == 'url':
                 urls = df[field].values
@@ -111,8 +129,8 @@ def load_data(data_catalog, data_product):
     data_dictionary = get_data_dictionary(data_catalog, data_product)
     df = get_df_from_zip(data_dictionary.data_file_name, data_catalog.data_file, participant_df)
     index = [x.strip() for x in data_dictionary.index_fields.split(";")]
-    df = df.set_index(index)    
-    df = fix_df_column_types(df,data_dictionary)
+    df = df.set_index(index)
+    df = fix_df_column_types(df,data_dictionary)    
     df = df.sort_index(level=0)
     df.name = data_dictionary.name
     return(df)
@@ -122,6 +140,7 @@ def load_baseline(data_catalog, data_product, filename):
     df = pd.read_csv(filename)    
     index = [x.strip() for x in data_dictionary.index_fields.split(";")]
     df = df.set_index(index)
+    df = fix_df_column_types(df,data_dictionary)
     df.sort_index(level=0)
     df.name = data_dictionary.name
     return(df)
