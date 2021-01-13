@@ -60,7 +60,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                             table.plot(kind="bar", ax=this_ax)
                             this_ax.grid(axis='y')
                     else:                    
-                        df[field].hist(figure=fig, align='right', ax=this_ax)
+                        df[field].hist(figure=fig, align='left', ax=this_ax)
                         this_ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                         this_ax.yaxis.set_major_locator(MaxNLocator(integer=True))
                         this_ax.grid(True)
