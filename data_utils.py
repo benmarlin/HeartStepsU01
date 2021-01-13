@@ -76,7 +76,7 @@ def fix_df_column_types(df, dd):
         else:  
             dd_type = dd.loc[field]["DataType"]
             
-        if dd_type in ["Boolean","String"]:
+        if dd_type in ["Boolean","String","Menu"]:
             if field == 'url':
                 urls = df[field].values
                 for index, url in enumerate(urls):

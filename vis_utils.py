@@ -32,18 +32,17 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
             this_ax = axes[i//cols,i%cols]
-            this_ax.set_title(field)
+            #Shorten title if it is too long
+            title = field.replace(':', '\n')
+            max_length_limit = 40
+            if len(title) > max_length_limit:
+                title = title[:max_length_limit] + str('...')
+            this_ax.set_title(title)  
             str_values = [str(value).lower() for value in df[field].values]
             check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
             if not check_all_nan:
                 if field.find(':') > 0:
-                    field_type = "Boolean"
-                    #Shorten title if it is too long
-                    title = field.replace(':', '\n')
-                    max_length_limit = 50
-                    if len(title) > max_length_limit:
-                        title = title[:max_length_limit] + str('...')
-                    this_ax.set_title(title)                   
+                    field_type = "Boolean"                 
                 else:
                     field_type = dd.loc[field]["DataType"]
                 if field_type in ["Time", "DateTime"]:                         
@@ -54,22 +53,22 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     this_ax.set_xticklabels(hours)
                     this_ax.set_xlim(0,24)
                 else:
-                    if field_type in ["Boolean", "String", "Binary"]:                       
+                    if field_type in ["Boolean", "String", "Binary", "Menu"]:                       
                         table = df[field].value_counts()
                         #Plot table if it is not too big
                         if len(table) < 300:                           
                             table.plot(kind="bar", ax=this_ax)
                             this_ax.grid(axis='y')
-                            #Shorten xlabels if they are too long
-                            max_length_limit = 10
-                            current_max_length = max([len(str(value)) for value in df[field].values])
-                            if current_max_length > max_length_limit:
-                                this_ax = shorten_xlabels(this_ax, table, max_length_limit)
                     else:                    
                         df[field].hist(figure=fig, align='right', ax=this_ax)
                         this_ax.xaxis.set_major_locator(MaxNLocator(integer=True))
                         this_ax.yaxis.set_major_locator(MaxNLocator(integer=True))
-                        this_ax.grid(True)                        
+                        this_ax.grid(True)
+                    #Shorten xlabels if they are too long
+                    max_length_limit = 15
+                    current_max_length = max([len(str(value)) for value in df[field].values])
+                    if current_max_length > max_length_limit:
+                        this_ax = shorten_xlabels(this_ax, table, max_length_limit)
             i=i+1
     while (i < (rows*cols)):
         this_ax = axes[i//cols,i%cols]
