@@ -53,10 +53,10 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     df[field].hist(figure=fig, ax=this_ax)
                     this_ax.grid(True)
                 else:
-                    if field_type in ["Boolean", "String", "Ordinal", "Category"]:
+                    if field_type in ["Boolean", "String", "Ordinal", "Categorical"]:
                         #Pandas automatically converts int into float, thus convert back to int for plot
                         if field_type in ["Ordinal"]:
-                            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(int(x)))
+                            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(int(x)))                          
                         table = df[field].value_counts()
                         #Plot table if it is not too big
                         if len(table) < 300:

@@ -24,8 +24,8 @@ if __name__ == '__main__':
     dd.insert(3, 'Required', 'Required') 
     dd.insert(5, 'ValueRange', '')
     dd.insert(7, 'Aliases', '')
-    dd['DataType'] = dd['DataType'].replace('radio','Category')
-    dd['DataType'] = dd['DataType'].replace('dropdown','Category')
+    dd['DataType'] = dd['DataType'].replace('radio','Categorical')
+    dd['DataType'] = dd['DataType'].replace('dropdown','Categorical')
     dd['DataType'] = dd['DataType'].replace('yesno','Boolean')
     #Remove remaining text that are not number
     dd = dd[dd['DataType'] != 'text']
@@ -35,7 +35,8 @@ if __name__ == '__main__':
     dd['ElementName'] = [str(x).replace('bsl_', '').replace('_v2', '') for x in dd['ElementName']]
     dd['ElementDescription'] = [str(x).replace('[SELECT ALL THAT APPLY]', '(check all that apply)') for x in dd['ElementDescription']]
     dd['ElementDescription'] = [str(x).replace('(Please check all that apply to you)', '(Check all that apply)') for x in dd['ElementDescription']]
-   
+    dd['ElementDescription'] = [str(x).replace(' (list which ones below)', '') for x in dd['ElementDescription']]
+     
     #Expand checkbox and set to Boolean
     dd_checkbox = dd[dd['DataType'] == 'checkbox']['ElementName']
     for index, item in enumerate(dd['ElementName'].values):
@@ -61,7 +62,7 @@ if __name__ == '__main__':
     df.columns = [str(x).replace('bsl_', '').replace('_v2', '') for x in df.columns]
     df = df.drop(columns=['baseline_survey_2_complete'])
     
-    dd_category = dd[dd['DataType'] == 'Category']['ElementName']
+    dd_categorical = dd[dd['DataType'] == 'Categorical']['ElementName']
     dd_binary   = dd[dd['DataType'] == 'Boolean' ]['ElementName']
 
     for field in list(df.keys()):
@@ -96,7 +97,7 @@ if __name__ == '__main__':
             dict_notes = {0: '0: Yes', 1: '1: No'}
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else dict_notes[int(x)])
 
-        if field in dd_category.values:
+        if field in dd_categorical.values:
             for index, item in enumerate(dd['ElementName'].values):
                 if item == field:
                     notes = str(dd['Notes'].values[index]).split('|')

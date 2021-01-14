@@ -71,7 +71,7 @@ def fix_df_column_types(df, dd):
     #indicate missing data.
     for field in list(df.keys()):
         dd_type = dd.loc[field]["DataType"]    
-        if dd_type in ["Boolean","String","Category"]:
+        if dd_type in ["Boolean","String","Categorical"]:
             if field == 'url':
                 urls = df[field].values
                 for index, url in enumerate(urls):
