@@ -70,13 +70,8 @@ def fix_df_column_types(df, dd):
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
     for field in list(df.keys()):
-        pos = field.find(':')
-        if pos > 0:
-            dd_type = 'Checkbox'
-        else:  
-            dd_type = dd.loc[field]["DataType"]
-            
-        if dd_type in ["Boolean","String","Menu"]:
+        dd_type = dd.loc[field]["DataType"]    
+        if dd_type in ["Boolean","String","Category"]:
             if field == 'url':
                 urls = df[field].values
                 for index, url in enumerate(urls):

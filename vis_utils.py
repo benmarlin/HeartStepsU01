@@ -41,10 +41,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
             str_values = [str(value).lower() for value in df[field].values]
             check_all_nan = ((len(set(str_values)) == 1) and (str_values[0] == 'nan'))
             if not check_all_nan:
-                if field.find(':') > 0:
-                    field_type = "Boolean"                 
-                else:
-                    field_type = dd.loc[field]["DataType"]
+                field_type = dd.loc[field]["DataType"]
                 if field_type in ["Time", "DateTime"]:                         
                     #Plot histogram, one bin per half hour of the day
                     df_time = df[field] / pd.Timedelta(minutes=60)
@@ -52,17 +49,26 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     hours = [str(i) + ':00' for i in range(0,24,5)]
                     this_ax.set_xticklabels(hours)
                     this_ax.set_xlim(0,24)
+                elif field_type in ["Date"]:
+                    df[field].hist(figure=fig, ax=this_ax)
+                    this_ax.grid(True)
                 else:
-                    if field_type in ["Boolean", "String", "Binary", "Menu"]:                       
+                    if field_type in ["Boolean", "String", "Ordinal", "Category"]:
+                        #Pandas automatically converts int into float, thus convert back to int for plot
+                        if field_type in ["Ordinal"]:
+                            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(int(x)))
                         table = df[field].value_counts()
                         #Plot table if it is not too big
-                        if len(table) < 300:                           
-                            table.plot(kind="bar", ax=this_ax)
+                        if len(table) < 300:
+                            if len(table) < 30: #Sort table if it is not too big
+                                table = table.sort_index()
+                            table.plot(kind="bar", x=field, ax=this_ax)
                             this_ax.grid(axis='y')
-                    else:                    
+                    else:
                         df[field].hist(figure=fig, align='left', ax=this_ax)
-                        this_ax.xaxis.set_major_locator(MaxNLocator(integer=True))
-                        this_ax.yaxis.set_major_locator(MaxNLocator(integer=True))
+                        if field_type not in ["Integer"]:
+                            this_ax.xaxis.set_major_locator(MaxNLocator(integer=True))
+                            this_ax.yaxis.set_major_locator(MaxNLocator(integer=True))
                         this_ax.grid(True)
                     #Shorten xlabels if they are too long
                     max_length_limit = 15
