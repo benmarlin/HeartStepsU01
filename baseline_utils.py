@@ -94,7 +94,7 @@ if __name__ == '__main__':
             df[new_name] = df[new_name].map(lambda x: x if str(x).lower()=="nan" else dict_notes[int(x)])            
 
         if field in dd_binary.values:
-            dict_notes = {0: '0: Yes', 1: '1: No'}
+            dict_notes = {0: '0: No', 1: '1: Yes'}
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else dict_notes[int(x)])
 
         if field in dd_categorical.values:
