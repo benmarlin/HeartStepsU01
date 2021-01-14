@@ -70,8 +70,8 @@ def fix_df_column_types(df, dd):
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
     for field in list(df.keys()):
-        dd_type = dd.loc[field]["DataType"]
-        if dd_type in ["Boolean","String"]:
+        dd_type = dd.loc[field]["DataType"]    
+        if dd_type in ["Boolean","String","Categorical"]:
             if field == 'url':
                 urls = df[field].values
                 for index, url in enumerate(urls):
@@ -111,14 +111,27 @@ def load_data(data_catalog, data_product):
     data_dictionary = get_data_dictionary(data_catalog, data_product)
     df = get_df_from_zip(data_dictionary.data_file_name, data_catalog.data_file, participant_df)
     index = [x.strip() for x in data_dictionary.index_fields.split(";")]
-    df = df.set_index(index)    
-    df = fix_df_column_types(df,data_dictionary)
+    df = df.set_index(index)
+    df = fix_df_column_types(df,data_dictionary)    
     df = df.sort_index(level=0)
     df.name = data_dictionary.name
     return(df)
-    
-def get_subject_ids(df):
-    sids = list(df.index.levels[0])
+
+def load_baseline(data_catalog, data_product, filename):
+    data_dictionary = get_data_dictionary(data_catalog, data_product)
+    df = pd.read_csv(filename)    
+    index = [x.strip() for x in data_dictionary.index_fields.split(";")]
+    df = df.set_index(index)
+    df = fix_df_column_types(df,data_dictionary)
+    df.sort_index(level=0)
+    df.name = data_dictionary.name
+    return(df)
+        
+def get_subject_ids(df, b_isbaseline=False):
+    if b_isbaseline:
+        sids = df.index.astype(str)
+    else:
+        sids = list(df.index.levels[0])    
     return list(sids)
 
 def get_variables(df): 
@@ -130,5 +143,10 @@ def get_catalogs(catalog_file):
     df = pd.read_csv(catalog_file)
     df = df["Data Product Name"]
     df = df[df.values != "Participant Information"]
+    df = df[df.values != "Baseline Survey"]
     return list(df)
+
+def get_categories(dd, field):
+    categories = dd.loc[field]['Notes'].split(' | ')
+    return categories
 
