@@ -146,3 +146,7 @@ def get_catalogs(catalog_file):
     df = df[df.values != "Baseline Survey"]
     return list(df)
 
+def get_categories(dd, field):
+    categories = dd.loc[field]['Notes'].split(' | ')
+    return categories
+
