@@ -92,16 +92,35 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
 
 def plot_individual_time_series(df,variable,subject_id):
     this_df = df.xs(subject_id, level=0, axis=0, drop_level=True)
-    ax = this_df[variable].plot(kind='bar', grid=True, figsize=(12,4))
-
-    if(len(this_df)>14): #Thin labels to prevent/reduce overlaps
+    ax = this_df[variable].plot(kind='bar',grid=True, figsize=(12,4))
+    
+    if(len(this_df)>14):
       every_nth = 7
+      all_labels = ax.xaxis.get_ticklabels()
       for n, label in enumerate(ax.xaxis.get_ticklabels()):
           if n % every_nth != 0:
               label.set_visible(False)
-
-    plt.title("Subject %s: %s"%(subject_id,variable))
+    
+    plt.title("Subject %s: %s (Values)"%(subject_id,variable))
     plt.show()
+
+    obs_df = 0+ ~this_df[variable].isnull()
+    ax2 = obs_df.rolling(window = 7,min_periods=1).mean().plot(grid=True, figsize=(12,4))
+
+    ax2.set_xticks(ax.get_xticks())
+    ax2.xaxis.set_ticklabels(all_labels)
+    if(len(this_df)>14):
+      every_nth = 7
+      for n, label in enumerate(ax2.xaxis.get_ticklabels()):
+          if n % every_nth != 0:
+              label.set_visible(False)
+    plt.xticks(rotation=90)
+    ax2.set_xlim(ax.get_xlim())
+    ax2.set_ylim(-0.02,1.05)
+
+    plt.title("Subject %s: %s (7 Day Obs. Rate)"%(subject_id,variable))
+    plt.show()
+
 
 def show_individual_time_series_visualizer(df):
     sids=data_utils.get_subject_ids(df)
