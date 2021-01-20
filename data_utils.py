@@ -70,6 +70,7 @@ def fix_df_column_types(df, dd):
     #interpretation as numeric for now. Leave nans in to
     #indicate missing data.
     for field in list(df.keys()):
+        if not (field in dd): continue
         dd_type = dd.loc[field]["DataType"]    
         if dd_type in ["Boolean","String","Categorical"]:
             if field == 'url':
