@@ -11,6 +11,12 @@ import ipywidgets as widgets
 import tabulate
 from . import data_utils
 
+
+def highlight_greaterthan(s, threshold, column):
+    is_max = pd.Series(data=False, index=s.index)
+    is_max[column] = s.loc[column] >= threshold
+    return ['color: #DD0000' if is_max.any() else '' for v in is_max]
+
 def morning_survey_response_report(dc):
 
   participants_df = data_utils.get_participant_info(dc)
@@ -64,4 +70,7 @@ def morning_survey_response_report(dc):
   df_mis_report = pd.DataFrame(response_data)
   df_mis_report=df_mis_report.set_index("Subject ID")
   df_mis_report.sort_values(by="Days overdue", inplace=True, ascending=False)
+
+  df_mis_report=df_mis_report.style.apply(highlight_greaterthan, threshold=3, column="Days overdue", axis=1)
+
   return(df_mis_report)
