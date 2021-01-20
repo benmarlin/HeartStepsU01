@@ -92,7 +92,14 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
 
 def plot_individual_time_series(df,variable,subject_id):
     this_df = df.xs(subject_id, level=0, axis=0, drop_level=True)
-    this_df[variable].plot(kind='bar', grid=True, figsize=(12,4) )
+    ax = this_df[variable].plot(kind='bar', grid=True, figsize=(12,4))
+
+    if(len(this_df)>14): #Thin labels to prevent/reduce overlaps
+      every_nth = 7
+      for n, label in enumerate(ax.xaxis.get_ticklabels()):
+          if n % every_nth != 0:
+              label.set_visible(False)
+
     plt.title("Subject %s: %s"%(subject_id,variable))
     plt.show()
 
