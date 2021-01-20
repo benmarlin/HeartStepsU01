@@ -105,7 +105,7 @@ def plot_individual_time_series(df,variable,subject_id):
     plt.show()
 
     obs_df = 0+ ~this_df[variable].isnull()
-    ax2 = obs_df.rolling(window = 7,min_periods=1).mean().plot(grid=True, figsize=(12,4))
+    ax2 = obs_df.rolling(window = 3,min_periods=1).mean().plot(grid=True, figsize=(12,4))
 
     ax2.set_xticks(ax.get_xticks())
     ax2.xaxis.set_ticklabels(all_labels)
@@ -118,7 +118,7 @@ def plot_individual_time_series(df,variable,subject_id):
     ax2.set_xlim(ax.get_xlim())
     ax2.set_ylim(-0.02,1.05)
 
-    plt.title("Subject %s: %s (7 Day Obs. Rate)"%(subject_id,variable))
+    plt.title("Subject %s: %s (3-Day Obs. Rate)"%(subject_id,variable))
     plt.show()
 
 
