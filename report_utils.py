@@ -46,7 +46,7 @@ def morning_survey_response_report(dc):
 
     response_data.append({"Subject ID":p, 
                           "Last date":last_date,
-                          "Last self-report":last_date_with_self_report,
+                          "Last Morning Survey":last_date_with_self_report,
                           "Days overdue":days_since_last_self_report,
                           "Comments":comments  
                           })
