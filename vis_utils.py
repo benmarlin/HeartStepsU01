@@ -184,6 +184,7 @@ def show_missing_data_by_participant(df):
 
 def show_data_selector(data_dir):
     l = [f for f in os.listdir(data_dir) if ".zip" in f]
+    l.sort(reverse=True) 
     w=widgets.Dropdown(
         options=l,
         value=l[0],
