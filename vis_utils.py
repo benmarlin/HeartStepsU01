@@ -31,6 +31,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
     i=0
     for field in list(df.keys()):
         if(field in fields or len(fields)==0):
+            if field not in list(dd.index): continue
             this_ax = axes[i//cols,i%cols]
             #Shorten title if it is too long
             title = field.replace(':', '\n')
