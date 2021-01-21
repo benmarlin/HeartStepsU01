@@ -31,6 +31,12 @@ def format_date(t, fmt='{:%Y-%m-%d}'):
         return fmt.format(t) # or strftime
     except ValueError:
         return "-"
+        
+def format_numeric_with_nan(x, fmt="{:.0f}"):
+    if(np.isnan(x)):
+        return("-")
+    else:
+        return(fmt.format(x))
 
 
 def morning_survey_response_report(dc, threshold=3):
@@ -94,7 +100,7 @@ def morning_survey_response_report(dc, threshold=3):
             days_since_last_self_report = n_days
         else:
             days_since_last_self_report = np.nan
-        comments = comments + "No recorded self report"
+        comments = comments + "No recorded self report".
     else:
       #No data at all for participant
       #Record everything as missing
@@ -104,7 +110,7 @@ def morning_survey_response_report(dc, threshold=3):
       days_since_last_self_report = np.nan
       weekly_response_rate =np.nan
       alltime_response_rate = np.nan 
-      comments = comments + "No data found for this participant"
+      comments = comments + "No data found for this participant."
 
     #Create dataframe row
     response_data.append({"Subject ID":p, 
@@ -123,7 +129,7 @@ def morning_survey_response_report(dc, threshold=3):
 
   #Style the dataframe
   df_mis_report=df_mis_report.style.apply(highlight_greaterthan, threshold=threshold, column="Days overdue", axis=None)\
-    .format({'Days overdue': "{:.0f}",\
+    .format({'Days overdue': format_numeric_with_nan,\
              "All time response rate": "{:.1%}",\
              "7-day response rate": "{:.1%}",\
              'Last date':format_date,\
