@@ -100,7 +100,7 @@ def morning_survey_response_report(dc, threshold=3):
             days_since_last_self_report = n_days
         else:
             days_since_last_self_report = np.nan
-        comments = comments + "No recorded self report".
+        comments = comments + "No recorded self report."
     else:
       #No data at all for participant
       #Record everything as missing
