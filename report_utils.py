@@ -90,7 +90,10 @@ def morning_survey_response_report(dc, threshold=3):
         #If no self-report, record last day as NaT (not a time)
         #and days since last self report as total days 
         last_date_with_self_report = pd.NaT
-        days_since_last_self_report = n_days
+        if(status=="active"):
+            days_since_last_self_report = n_days
+        else:
+            days_since_last_self_report = np.nan
         comments = comments + "No recorded self report"
     else:
       #No data at all for participant
