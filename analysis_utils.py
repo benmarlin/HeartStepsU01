@@ -6,6 +6,9 @@ from matplotlib.pyplot import cm
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score
+
 from . import data_utils
 
 
@@ -81,3 +84,40 @@ def perform_linear_regression(df):
         ax = df_coef.plot.barh(figsize=(14, 7))
         ax.axvline(0, color='black', lw=1)
         plt.title(y_display + ' using Mixed Linear Model Regression')
+
+def perform_classification(df):
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    df = df.reset_index()
+    df = df.drop(columns=['Fitbit Minutes Worn', 'Subject ID', 'Date'])      
+
+    #Turn Fitbit Step Count per day into a binary variable steps = 0 and steps > 0
+    column_name = 'Fitbit Step Count'
+    df[column_name] = df[column_name].apply(lambda x: 1 if x > 0 else 0)
+    
+    X = df.drop(columns=column_name).values
+    y = df[column_name].values
+
+    # Split the data and targets into training/testing sets
+    split_percent = 0.8
+    split = int(len(X) * split_percent)    
+    X_train = X[:split]
+    X_test  = X[split:]
+    y_train = y[:split]
+    y_test  = y[split:]
+
+    print('Classification for ' + column_name)
+    print('\ntrain split   = {}%'.format(int(split_percent*100)))
+    print('X_train.shape =', X_train.shape)
+    print('y_train.shape =', y_train.shape)
+    print('X_test.shape  =', X_test.shape)
+    print('y_test.shape  =', y_test.shape)    
+
+    model = LogisticRegression(solver='lbfgs', random_state=0)
+    model.fit(X_train, y_train)
+    y_predict = model.predict(X_test)
+
+    print('\nmodel =', model)
+    print('\ntrain accuracy =', accuracy_score(y_train, model.predict(X_train)))
+    print('test  accuracy =', accuracy_score(y_test,  model.predict(X_test)))
+
