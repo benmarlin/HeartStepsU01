@@ -6,7 +6,7 @@ from matplotlib.pyplot import cm
 from . import data_utils
 
 
-def process_morning_survey(dc, df):
+def process_morning_survey(df):
     #Get Mood categories and create new columns
     df['Mood'] = pd.Categorical(df['Mood'])
     df['Mood Code'] = df['Mood'].cat.codes
@@ -23,7 +23,11 @@ def process_morning_survey(dc, df):
 
     return df_selected
 
-def get_correlations(df):   
+def process_daily_metrics(df):
+    return  df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
+
+def get_correlations(df):
+    df = df.replace({True: 1, False: 0})    
     correlations = df.corr()
     plt.figure(figsize=(9,8))
     sn.heatmap(correlations, cmap=cm.Blues, annot=True)
