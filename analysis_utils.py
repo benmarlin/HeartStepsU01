@@ -12,7 +12,6 @@ def process_morning_survey(df):
     df['Mood Code'] = df['Mood'].cat.codes
     categories = dict(enumerate(df['Mood'].cat.categories))
 
-    df_selected = df['Mood']
     for key, value in categories.items():
         df[value] = df['Mood Code'].apply(lambda x: True if x == key else False)
 
@@ -30,7 +29,7 @@ def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
     correlations = df.corr()
     plt.figure(figsize=(9,8))
-    sn.heatmap(correlations, cmap=cm.Blues, annot=True)
+    sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
 
 
 
