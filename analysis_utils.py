@@ -1,4 +1,6 @@
 import pandas as pd
+import numpy as np
+
 import seaborn as sn
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
@@ -42,7 +44,10 @@ def perform_linear_regression(df):
     df = df.replace({True: 1, False: 0})
     df = df.reset_index()
 
+    df['Fitbit Log Step Count'] = np.log(df['Fitbit Step Count'] + 1e-7)
+
     y_names = {'Fitbit Step Count': 'step_count',
+               'Fitbit Log Step Count': 'log_step_count',
                'Fitbit Minutes Worn': 'minutes_worn'}
 
     df = df.rename(columns=y_names)
@@ -53,10 +58,7 @@ def perform_linear_regression(df):
 
     for y_display, y_name in y_names.items():        
         model = y_name + equation
-
-        drop_columns = ['subject_id', 'Date'] + list(y_names.values())        
-        X = df.drop(columns=drop_columns, axis=1).values
-        y = df[y_name].values
+        
         mod  = smf.ols(model, data=df)
         res0 = mod.fit()
         print('%s =\n%s\n\n\n' % (y_display, res0.summary()))
