@@ -7,6 +7,9 @@ from matplotlib.pyplot import cm
 
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
+from statsmodels.tsa.api import VAR
+from statsmodels.graphics.tsaplots import plot_pacf
+from scipy.stats import pearsonr
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
@@ -31,7 +34,66 @@ def process_morning_survey(df):
     return df_selected
 
 def process_daily_metrics(df):
-    return  df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
+    return df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
+
+def plot_time_series(df, y_name, count):
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    plt.figure(figsize=(12,2))
+    previous = ''
+    for row, value in enumerate(list(df.index)):
+        subject_id = value[0]
+        date = value[1]
+        step = df.loc[subject_id, date][y_name]        
+        if previous != subject_id:
+            previous = subject_id
+            steps = list(df.loc[subject_id,:][y_name])
+            plt.plot(steps, label=subject_id)
+            count -= 1
+        if count == 0:
+            break
+    plt.legend(loc=1)
+    plt.ylabel(y_name)
+    plt.xlabel('number of days')
+    plt.title(y_name)
+
+def get_pacf(df, names):
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    for i in range(0, len(names), 2):
+        fig, ax = plt.subplots(1,2, figsize=(12,3))
+        name = names[i]
+        title = name + ' Partial Autocorrelation'
+        plot_pacf(df[name], ax=ax[0], title=title)
+        if i+1 < len(names):
+            name = names[i+1]
+            title = name + ' Partial Autocorrelation'
+            plot_pacf(df[name], ax=ax[1], title=title)
+
+def get_pearsonr(df, name, lagged_name, max_lag):
+    print('correlation between %s and lagged %s:' % (name, lagged_name))
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    for lag in range(1,max_lag):
+        series1 = df[name].iloc[lag:]
+        series2 = df[lagged_name].iloc[:-lag]
+        results = pearsonr(series1, series2)
+        corr = results[0]
+        p_value = results[1]
+        detail = ''
+        if p_value < 0.05:
+            detail = 'significant'
+        print('lag=%d   corr=%.5f   p_value=%s \t%s' % (lag, corr, p_value, detail))
+    print()
+
+def compute_VAR(df, names, max_lag):
+    df = df.dropna()
+    df = df.reset_index()
+    df = df.replace({True: 1, False: 0})
+    df = df[names]
+    model = VAR(df)
+    results = model.fit(maxlags=max_lag)
+    print(results.summary())
 
 def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
@@ -54,7 +116,7 @@ def perform_linear_regression(df):
     df = df.rename(columns={'Subject ID': 'subject_id' })
     
     equation  = " ~ Busy + Committed + Rested + Energetic"
-    equation += " + Fatigued + Happy + Relaxed + Sad + Stressed + Tense"    
+    equation += " + Fatigued + Happy + Relaxed + Sad + Stressed + Tense"
 
     for y_display, y_name in y_names.items():        
         model = y_name + equation
