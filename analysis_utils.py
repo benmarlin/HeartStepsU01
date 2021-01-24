@@ -106,6 +106,11 @@ def perform_linear_regression(df):
     df = df.replace({True: 1, False: 0})
     df = df.reset_index()
 
+    plt.figure(figsize=(5,4))
+    plt.hist(df['Fitbit Step Count']) 
+    plt.xlabel('Fitbit Step Count')
+    plt.title('Fitbit Step Count histogram')
+
     df['Fitbit Log Step Count'] = np.log(df['Fitbit Step Count'] + 1e-7)
 
     y_names = {'Fitbit Step Count': 'step_count',
@@ -125,15 +130,15 @@ def perform_linear_regression(df):
         res0 = mod.fit()
         print('%s =\n%s\n\n\n' % (y_display, res0.summary()))
 
-        ind = sm.cov_struct.Exchangeable()
-        mod = smf.gee(model, "subject_id", data=df, cov_struct=ind)    
+        ex = sm.cov_struct.Exchangeable()
+        mod = smf.gee(model, "subject_id", data=df, cov_struct=ex)    
         res1 = mod.fit()
         print('%s =\n%s\n\n\n' % (y_display, res1.summary()))
 
         mod = smf.mixedlm(model, df, groups="subject_id")    
         res2 = mod.fit()
         print('%s =\n%s\n\n\n' % (y_display, res2.summary()))
-
+        
         df_coef = res0.params.to_frame().rename(columns={0: 'coef'})
         ax = df_coef.plot.barh(figsize=(14, 7))
         ax.axvline(0, color='black', lw=1)
