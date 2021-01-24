@@ -157,7 +157,7 @@ def perform_linear_regression(df, b_fixed_effect=False):
         plt.grid(True)
         plt.title(y_display + ' using GEE Regression')
 
-        df_coef = res2.params.to_frame().rename(columns={0: 'coef'})
+        df_coef = res2.params[:len(res2.params)-1].to_frame().rename(columns={0: 'coef'})
         ax = df_coef.plot.barh(figsize=figsize)
         ax.axvline(0, color='black', lw=1)
         plt.grid(True)
