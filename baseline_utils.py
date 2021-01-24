@@ -3,7 +3,7 @@ import numpy as np
 
 if __name__ == '__main__':
 
-    data_dictionary_filename = 'HeartSteps_DataDictionary_2021-01-06.csv'
+    data_dictionary_filename = 'HeartSteps_DataDictionary_2021-01-22.csv'
     data_filename            = 'HeartSteps-BaselineSurveyData_DATA_2021-01-06_1422.csv'
 
     #--------------------------------------------------------------------------------
@@ -13,6 +13,8 @@ if __name__ == '__main__':
 
     dd = dd[dd['Form Name'] == 'baseline_survey_2']
 
+    map_to_new_name = pd.Series(dd['New Name'].values, index=dd['Variable / Field Name']).to_dict()
+    
     dd['Field Type'] = np.where((dd['Text Validation Type OR Show Slider Number'] == 'number'), 'Integer', dd['Field Type'])
     
     dd = dd[['Variable / Field Name', 'Field Type', 'Field Label', 'Choices, Calculations, OR Slider Labels']]
@@ -32,7 +34,6 @@ if __name__ == '__main__':
     dd = dd[dd['DataType'] != 'descriptive']
     dd = dd[dd['DataType'] != 'notes']
 
-    dd['ElementName'] = [str(x).replace('bsl_', '').replace('_v2', '') for x in dd['ElementName']]
     dd['ElementDescription'] = [str(x).replace('[SELECT ALL THAT APPLY]', '(check all that apply)') for x in dd['ElementDescription']]
     dd['ElementDescription'] = [str(x).replace('(Please check all that apply to you)', '(Check all that apply)') for x in dd['ElementDescription']]
     dd['Notes'] = [str(x).replace(' (list which ones below)', '') for x in dd['Notes']]
@@ -60,7 +61,6 @@ if __name__ == '__main__':
 
     df = pd.read_csv(data_filename)
     
-    df.columns = [str(x).replace('bsl_', '').replace('_v2', '') for x in df.columns]
     df = df.drop(columns=['baseline_survey_2_complete'])
     
     dd_categorical = dd[dd['DataType'] == 'Categorical']['ElementName']
@@ -125,6 +125,15 @@ if __name__ == '__main__':
     #Remove checkbox from data dictionary, after expanding the checkbox data
     dd = dd[dd['DataType'] != 'checkbox']
 
+    #Replace with new name
+    def shorten(x):
+        return str(x.split(':')[0]) 
+    dd['ElementName'] = dd['ElementName'].map(lambda x: x.replace(shorten(x), map_to_new_name[shorten(x)]))
+    dd['ElementDescription'] = dd['ElementDescription'].map(lambda x: x.replace(shorten(x), map_to_new_name[shorten(x)])
+                                                            if shorten(x) in map_to_new_name else x)    
+    df.columns = df.columns.map(lambda x: x.replace(shorten(x), map_to_new_name[shorten(x)])
+                                                            if shorten(x) in map_to_new_name else x)
+    
     dd.to_csv('baseline-survey.csv', index=False)
     df.to_csv('baseline-survey-data.csv', index=False)
 
