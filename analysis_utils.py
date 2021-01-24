@@ -101,7 +101,7 @@ def get_correlations(df):
     plt.figure(figsize=(9,8))
     sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
 
-def perform_linear_regression(df):
+def perform_linear_regression(df, b_fixed_effect=False):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
     df = df.reset_index()
@@ -123,6 +123,12 @@ def perform_linear_regression(df):
     equation  = " ~ Busy + Committed + Rested + Energetic"
     equation += " + Fatigued + Happy + Relaxed + Sad + Stressed + Tense"
 
+    figsize = (10,4)
+    if b_fixed_effect:
+        #Add unconditional fixed effect on Subject ID
+        equation += " + C(subject_id)"
+        figsize = (10,14)
+        
     for y_display, y_name in y_names.items():        
         model = y_name + equation
         
@@ -140,18 +146,21 @@ def perform_linear_regression(df):
         print('%s =\n%s\n\n\n' % (y_display, res2.summary()))
         
         df_coef = res0.params.to_frame().rename(columns={0: 'coef'})
-        ax = df_coef.plot.barh(figsize=(14, 7))
+        ax = df_coef.plot.barh(figsize=figsize)
         ax.axvline(0, color='black', lw=1)
+        plt.grid(True)
         plt.title(y_display + ' using OLS')
         
         df_coef = res1.params.to_frame().rename(columns={0: 'coef'})
-        ax = df_coef.plot.barh(figsize=(14, 7))
+        ax = df_coef.plot.barh(figsize=figsize)
         ax.axvline(0, color='black', lw=1)
+        plt.grid(True)
         plt.title(y_display + ' using GEE Regression')
 
         df_coef = res2.params.to_frame().rename(columns={0: 'coef'})
-        ax = df_coef.plot.barh(figsize=(14, 7))
+        ax = df_coef.plot.barh(figsize=figsize)
         ax.axvline(0, color='black', lw=1)
+        plt.grid(True)
         plt.title(y_display + ' using Mixed Linear Model Regression')
 
 def perform_classification(df):
@@ -167,7 +176,7 @@ def perform_classification(df):
     X = df.drop(columns=column_name).values
     y = df[column_name].values
 
-    # Split the data and targets into training/testing sets
+    #Split the data and targets into training/testing sets
     split_percent = 0.8
     split = int(len(X) * split_percent)    
     X_train = X[:split]
