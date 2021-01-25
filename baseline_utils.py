@@ -1,10 +1,32 @@
 import pandas as pd
 import numpy as np
+import sys, getopt
 
-if __name__ == '__main__':
+def main(argv):
 
-    data_dictionary_filename = 'HeartSteps_DataDictionary_2021-01-22.csv'
-    data_filename            = 'HeartSteps-BaselineSurveyData_DATA_2021-01-06_1422.csv'
+    #For example, run the following command:
+    #baseline_utils.py -d HeartSteps_DataDictionary_2021-01-22.csv -f HeartSteps-BaselineSurveyData_DATA_2021-01-06_1422.csv
+
+    try:
+        opts, args = getopt.getopt(argv,"d:f:",["data_dictionary=","data="])
+    except getopt.GetoptError:
+        print("baseline_utils.py -d <data_dictionary_filename> -f <data_filename>")
+        sys.exit(2)
+
+    data_dictionary_filename = ''
+    data_filename = '' 
+    for opt, arg in opts:
+        if opt in ["-d", "--data_dictionary"]:
+            data_dictionary_filename = arg
+        elif opt in ["-f", "--data"]:
+            data_filename = arg
+
+    if data_dictionary_filename == '' or data_filename == '':
+        print("baseline_utils.py -d <data_dictionary_filename> -f <data_filename>")
+        sys.exit()
+
+    print('input dd  =', data_dictionary_filename)
+    print('input df  =', data_filename)
 
     #--------------------------------------------------------------------------------
     #Process data dictionary for U01DataDictionaries
@@ -134,11 +156,19 @@ if __name__ == '__main__':
     df.columns = df.columns.map(lambda x: x.replace(shorten(x), map_to_new_name[shorten(x)])
                                                             if shorten(x) in map_to_new_name else x)
     
-    dd.to_csv('baseline-survey.csv', index=False)
-    df.to_csv('baseline-survey-data.csv', index=False)
+    output_data_dictionary = 'baseline-survey.csv'
+    output_data = 'baseline-survey-data.csv'
+    dd.to_csv(output_data_dictionary, index=False)
+    df.to_csv(output_data, index=False)
 
-    print('dd.shape =', dd.shape)
-    print('df.shape =', df.shape)
+    print('dd shape  =', dd.shape)
+    print('df shape  =', df.shape)
+    print('dd output =', output_data_dictionary)
+    print('df output =', output_data)
+
+if __name__ == '__main__':
+    
+     main(sys.argv[1:])
 
 
 
