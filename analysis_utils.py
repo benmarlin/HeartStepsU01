@@ -36,6 +36,13 @@ def process_morning_survey(df):
 def process_daily_metrics(df):
     return df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
 
+def process_previous_fitbit_data(df):
+    df['Previous Count'] = df['Fitbit Step Count'].shift()
+    df['Previous Worn']  = df['Fitbit Minutes Worn'].shift()
+    df.loc[df.groupby('Subject ID')['Previous Count'].head(1).index, 'Previous Count'] = 0
+    df.loc[df.groupby('Subject ID')['Previous Worn'].head(1).index,  'Previous Worn']  = 0    
+    return df
+
 def plot_time_series(df, y_name, count):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
@@ -98,7 +105,10 @@ def compute_VAR(df, names, max_lag):
 def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
     correlations = df.corr()
-    plt.figure(figsize=(9,8))
+    figsize = (9,8)
+    if df.shape[1] > 12:
+        figsize = (10,9)
+    plt.figure(figsize=figsize)
     sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
 
 def perform_linear_regression(df, b_fixed_effect=False):
