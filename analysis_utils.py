@@ -111,6 +111,55 @@ def get_correlations(df):
     plt.figure(figsize=figsize)
     sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
 
+def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
+                family=sm.families.Gaussian(), cov_struct=sm.cov_struct.Exchangeable()):
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    df = df.reset_index()
+
+    if family == 'Gaussian':
+        family = sm.families.Gaussian()
+    elif family == 'Poisson':
+        family = sm.families.Poisson()
+
+    if cov_struct == 'Independence':
+        cov_struct = sm.cov_struct.Independence() 
+    elif cov_struct == 'Exchangeable':
+        cov_struct = sm.cov_struct.Exchangeable() 
+
+    def update_name(old_name):
+        return str(old_name).replace(' ', '_').lower()
+
+    df.columns = [update_name(x) for x in df.columns]
+    y_name = update_name(y_name)
+    groups = update_name(groups_name)
+
+    equation = y_name + " ~ "
+    for index, covariate in enumerate(x_array):
+        covariate = update_name(covariate)
+        if index == 0:
+            equation += covariate
+        else:
+            equation += ' + ' + covariate
+
+    figsize = (10,4)
+    if fixed_effect != '':
+        fixed_effect = update_name(fixed_effect)
+        equation += " + C(" + fixed_effect + ")"
+        figsize = (10,14)
+    
+    model = smf.gee(equation, data=df, groups=groups, family=family, cov_struct=cov_struct)
+    results = model.fit()
+
+    print('%s =\n%s' % (y_name, results.summary()))
+        
+    df_coef = results.params.to_frame().rename(columns={0: 'coef'})
+    ax = df_coef.plot.barh(figsize=figsize)
+    ax.axvline(0, color='black', lw=1)
+    plt.grid(True)
+    plt.title(y_name + ' using GEE Regression')
+    
+
 def perform_linear_regression(df, b_fixed_effect=False):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
