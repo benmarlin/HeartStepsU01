@@ -173,11 +173,11 @@ def show_summary_table(df, b_isbaseline=False):
     display(HTML("<H2>Summary Table: %s</H2>"%df.name))
     display(x)
 
-def show_scores_table(df, table_name, subject='', cols=3, b_isbaseline=False):
+def show_scores_table(df, table_name, subject='', xlim=None, cols=3):
     df = df.set_index(subject)
     columns = df.columns
     
-    display(HTML("<H2>Scores by Participant: %s</H2>"%table_name))    
+    display(HTML("<H2>Scores by Participant and Histograms: %s</H2>"%table_name))    
     rows = int(np.ceil(len(columns)/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*10))
     for i, field in enumerate(columns):
@@ -185,6 +185,8 @@ def show_scores_table(df, table_name, subject='', cols=3, b_isbaseline=False):
         df[field].plot(kind='barh', ax=this_ax)
         this_ax.grid(True)
         this_ax.set_title(field)
+        if xlim != None:
+            this_ax.set_xlim(xlim) 
     while (i+1 < (rows*cols)):
         i=i+1
         this_ax = axes[i//cols,i%cols]
@@ -198,6 +200,8 @@ def show_scores_table(df, table_name, subject='', cols=3, b_isbaseline=False):
         df[field].hist(figure=fig, align='left', ax=this_ax)
         this_ax.grid(True)
         this_ax.set_title(field)
+        if xlim != None:
+            this_ax.set_xlim(xlim) 
     while (i+1 < (rows*cols)):
         i=i+1
         this_ax = axes[i//cols,i%cols]
