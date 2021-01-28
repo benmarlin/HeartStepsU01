@@ -8,6 +8,7 @@ from matplotlib.pyplot import cm
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.tsa.api import VAR
+from statsmodels.tsa.stattools import adfuller
 from statsmodels.graphics.tsaplots import plot_pacf
 from scipy.stats import pearsonr
 
@@ -64,6 +65,27 @@ def plot_time_series(df, y_name, count):
     plt.xlabel('number of days')
     plt.title(y_name)
 
+def check_stationary(df, names):
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    for name in names:
+        adf_test = adfuller(df[name])
+        adf_stat = adf_test[0]
+        p_value  = adf_test[1]
+        critical_values = adf_test[4]
+        print('Check if %s is stationary?' % name)
+        print('ADF statistic = %f' % adf_stat)
+        print('p-value = %f' % p_value)
+        print('critical values:')
+        for key, value in critical_values.items():
+            print('\t%s: %.3f' % (key, value))
+        # Ho: time series is non-stationary
+        if adf_stat < critical_values['5%']: # reject Ho
+            print('%s time series is stationary' % name)             
+        else: # failed to reject Ho
+            print('%s time series is non-stationary' % name)
+        print()
+        
 def get_pacf(df, names):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
@@ -111,6 +133,9 @@ def get_correlations(df):
     plt.figure(figsize=figsize)
     sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
 
+def update_name(old_name):
+    return str(old_name).replace(' ', '_').lower()
+    
 def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
                 family=sm.families.Gaussian(), cov_struct=sm.cov_struct.Exchangeable()):
     df = df.dropna()
@@ -126,9 +151,6 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         cov_struct = sm.cov_struct.Independence() 
     elif cov_struct == 'Exchangeable':
         cov_struct = sm.cov_struct.Exchangeable() 
-
-    def update_name(old_name):
-        return str(old_name).replace(' ', '_').lower()
 
     df.columns = [update_name(x) for x in df.columns]
     y_name = update_name(y_name)
@@ -160,7 +182,9 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
     plt.title(y_name + ' using GEE Regression')
     
 
-def perform_linear_regression(df, b_fixed_effect=False):
+def perform_linear_regression(df, y_name, b_fixed_effect=False):
+    #Perform three linear regressions: OLS, GEE, Mixed Linear Model
+    
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
     df = df.reset_index()
@@ -172,76 +196,84 @@ def perform_linear_regression(df, b_fixed_effect=False):
 
     df['Fitbit Log Step Count'] = np.log(df['Fitbit Step Count'] + 1e-7)
 
-    y_names = {'Fitbit Step Count': 'step_count',
-               'Fitbit Log Step Count': 'log_step_count',
-               'Fitbit Minutes Worn': 'minutes_worn'}
-
-    df = df.rename(columns=y_names)
-    df = df.rename(columns={'Subject ID': 'subject_id' })
+    df.columns = [update_name(x) for x in df.columns]
+    y_display = y_name
+    y_name = update_name(y_name)
     
-    equation  = " ~ Busy + Committed + Rested + Energetic"
-    equation += " + Fatigued + Happy + Relaxed + Sad + Stressed + Tense"
+    equation  = " ~ busy + committed + rested + energetic"
+    equation += " + fatigued + happy + relaxed + sad + stressed + tense"
 
     figsize = (10,4)
     if b_fixed_effect:
         #Add unconditional fixed effect on Subject ID
         equation += " + C(subject_id)"
         figsize = (10,14)
-        
-    for y_display, y_name in y_names.items():        
-        model = y_name + equation
-        
-        mod  = smf.ols(model, data=df)
-        res0 = mod.fit()
-        print('%s =\n%s\n\n\n' % (y_display, res0.summary()))
+              
+    model = y_name + equation
+    
+    mod  = smf.ols(model, data=df)
+    res0 = mod.fit()
+    print('%s =\n%s\n\n\n' % (y_display, res0.summary()))
 
-        ex = sm.cov_struct.Exchangeable()
-        mod = smf.gee(model, "subject_id", data=df, cov_struct=ex)    
-        res1 = mod.fit()
-        print('%s =\n%s\n\n\n' % (y_display, res1.summary()))
+    ex = sm.cov_struct.Exchangeable()
+    mod = smf.gee(model, "subject_id", data=df, cov_struct=ex)    
+    res1 = mod.fit()
+    print('%s =\n%s\n\n\n' % (y_display, res1.summary()))
 
-        mod = smf.mixedlm(model, df, groups="subject_id")    
-        res2 = mod.fit()
-        print('%s =\n%s\n\n\n' % (y_display, res2.summary()))
-        
-        df_coef = res0.params.to_frame().rename(columns={0: 'coef'})
-        ax = df_coef.plot.barh(figsize=figsize)
-        ax.axvline(0, color='black', lw=1)
-        plt.grid(True)
-        plt.title(y_display + ' using OLS')
-        
-        df_coef = res1.params.to_frame().rename(columns={0: 'coef'})
-        ax = df_coef.plot.barh(figsize=figsize)
-        ax.axvline(0, color='black', lw=1)
-        plt.grid(True)
-        plt.title(y_display + ' using GEE Regression')
+    mod = smf.mixedlm(model, df, groups="subject_id")    
+    res2 = mod.fit()
+    print('%s =\n%s\n\n\n' % (y_display, res2.summary()))
+    
+    df_coef = res0.params.to_frame().rename(columns={0: 'coef'})
+    ax = df_coef.plot.barh(figsize=figsize)
+    ax.axvline(0, color='black', lw=1)
+    plt.grid(True)
+    plt.title(y_display + ' using OLS')
+    
+    df_coef = res1.params.to_frame().rename(columns={0: 'coef'})
+    ax = df_coef.plot.barh(figsize=figsize)
+    ax.axvline(0, color='black', lw=1)
+    plt.grid(True)
+    plt.title(y_display + ' using GEE Regression')
 
-        df_coef = res2.params[:len(res2.params)-1].to_frame().rename(columns={0: 'coef'})
-        ax = df_coef.plot.barh(figsize=figsize)
-        ax.axvline(0, color='black', lw=1)
-        plt.grid(True)
-        plt.title(y_display + ' using Mixed Linear Model Regression')
+    df_coef = res2.params[:len(res2.params)-1].to_frame().rename(columns={0: 'coef'})
+    ax = df_coef.plot.barh(figsize=figsize)
+    ax.axvline(0, color='black', lw=1)
+    plt.grid(True)
+    plt.title(y_display + ' using Mixed Linear Model Regression')
+    
 
-def perform_classification(df):
+def perform_classification(df, b_split_per_participant):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
-    df = df.reset_index()
-    df = df.drop(columns=['Fitbit Minutes Worn', 'Subject ID', 'Date'])      
-
+   
     #Turn Fitbit Step Count per day into a binary variable steps = 0 and steps > 0
     column_name = 'Fitbit Step Count'
     df[column_name] = df[column_name].apply(lambda x: 1 if x > 0 else 0)
-    
-    X = df.drop(columns=column_name).values
-    y = df[column_name].values
 
     #Split the data and targets into training/testing sets
     split_percent = 0.8
-    split = int(len(X) * split_percent)    
-    X_train = X[:split]
-    X_test  = X[split:]
-    y_train = y[:split]
-    y_test  = y[split:]
+
+    if b_split_per_participant:
+        df = df.drop(columns=['Fitbit Minutes Worn'])       
+        X = df.drop(columns=column_name)
+        y = df[column_name]        
+        X_train = X.groupby('Subject ID').apply(lambda x: x.head(round(split_percent * len(x))))
+        y_train = y.groupby('Subject ID').apply(lambda x: x.head(round(split_percent * len(x))))
+        X_test  = X.groupby('Subject ID').apply(lambda x: x.tail(len(x) - round(split_percent * len(x))))
+        y_test  = y.groupby('Subject ID').apply(lambda x: x.tail(len(x) - round(split_percent * len(x))))
+        X_train = X_train.values
+        y_train = y_train.values
+    else:
+        df = df.reset_index()
+        df = df.drop(columns=['Fitbit Minutes Worn', 'Subject ID', 'Date'])
+        X = df.drop(columns=column_name).values
+        y = df[column_name].values
+        split = int(len(X) * split_percent)
+        X_train = X[:split]
+        y_train = y[:split]
+        X_test  = X[split:]
+        y_test  = y[split:]
 
     print('Classification for ' + column_name)
     print('\ntrain split   = {}%'.format(int(split_percent*100)))
