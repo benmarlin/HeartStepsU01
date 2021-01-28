@@ -25,8 +25,8 @@ def main(argv):
         print("baseline_utils.py -d <data_dictionary_filename> -f <data_filename>")
         sys.exit()
 
-    print('input dd  =', data_dictionary_filename)
-    print('input df  =', data_filename)
+    print('input dd    =', data_dictionary_filename)
+    print('input df    =', data_filename)    
 
     #--------------------------------------------------------------------------------
     #Process data dictionary for U01DataDictionaries
@@ -77,6 +77,7 @@ def main(argv):
                     line = pd.DataFrame({'ElementName': new_name, 'DataType': 'Boolean', 'Required': 'Required',
                                          'ElementDescription': new_name}, index=[new_index])
                     dd = dd.append(line, ignore_index=False)
+
     
     #--------------------------------------------------------------------------------
     #Process data for U01Data
@@ -132,11 +133,7 @@ def main(argv):
                         item = item.split(',')                
                         key = int(item[0])
                         value = str(item[1]).strip()
-                        pos = value.find('=')
-                        if pos > 0:
-                            dict_notes[key] = str(key) + ': ' + value[pos+1:].strip() 
-                        else:
-                            dict_notes[key] = str(key) + ': ' + value.strip()
+                        dict_notes[key] = str(key) + ': ' + value.strip()
                     dd['Notes'].values[index] = ' | '.join(list(dict_notes.values()))
                     break                
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else dict_notes[int(x)])
@@ -161,13 +158,53 @@ def main(argv):
     dd.to_csv(output_data_dictionary, index=False)
     df.to_csv(output_data, index=False)
 
-    print('dd shape  =', dd.shape)
-    print('df shape  =', df.shape)
-    print('dd output =', output_data_dictionary)
-    print('df output =', output_data)
+    print('dd shape    =', dd.shape)
+    print('df shape    =', df.shape)
+    print('dd output   =', output_data_dictionary)
+    print('df output   =', output_data)
 
-if __name__ == '__main__':
+    #--------------------------------------------------------------------------------
+    #Create TIPI scores
+
+    df_data = {}
+
+    for name in list(df.columns):
+        if str(name).lower().find('tipi') != -1:
+            df_data[name] = df[name]
+
+    reverse_map = { '0: 1 = Disagree strongly'          : '6: 7 = Agree strongly',
+                    '1: 2 = Disagree moderately'        : '5: 6 = Agree moderately',
+                    '2: 3 = Disagree a little'          : '4: 5 = Agree a little',
+                    '3: 4 = Neither agree nor disagree' : '3: 4 = Neither agree nor disagree',
+                    '4: 5 = Agree a little'             : '2: 3 = Disagree a little',
+                    '5: 6 = Agree moderately'           : '1: 2 = Disagree moderately',
+                    '6: 7 = Agree strongly'             : '0: 1 = Disagree strongly' }
     
+    def reverse(df):
+        df = df.apply(lambda x: reverse_map[x])
+        return df
+
+    df_tipi = {}
+    df_tipi['Extraversion']          = [df_data['TIPI extravert 1'].values,            reverse(df_data['TIPI reserved 6']).values]
+    df_tipi['Agreeableness']         = [reverse(df_data['TIPI critical 2']).values,    df_data['TIPI sympathetic 7'].values]
+    df_tipi['Conscientiousness']     = [df_data['TIPI dependable 3'].values,           reverse(df_data['TIPI disorganized 8']).values]
+    df_tipi['Emotional Stability']   = [reverse(df_data['TIPI anxious 4']).values,     df_data['TIPI calm 9'].values]
+    df_tipi['Openess to Experience'] = [df_data['TIPI open 5'].values,                 reverse(df_data['TIPI conventional 10']).values]
+
+    scores = {}
+    for k,v in df_tipi.items():        
+        item0 = [str(x).split(':')[1] for x in v[0]]
+        item0 = [int(str(x).split('=')[0]) for x in item0]
+        item1 = [str(x).split(':')[1] for x in v[1]]
+        item1 = [int(str(x).split('=')[0]) for x in item1]
+        scores[k] = [(x+y)/2 for x, y in zip(item0, item1)]
+    scores = pd.DataFrame(scores).set_index(df['study_id'])
+
+    tipi_scores = 'baseline-survey-tipi.csv'
+    scores.to_csv(tipi_scores)
+    print('TIPI scores =', tipi_scores)
+
+if __name__ == '__main__':    
      main(sys.argv[1:])
 
 
