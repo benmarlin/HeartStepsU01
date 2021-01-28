@@ -151,7 +151,59 @@ def show_summary_table(df, b_isbaseline=False):
     x.data = x.data
     display(HTML("<H2>Summary Table: %s</H2>"%df.name))
     display(x)
+
+def show_summary_table(df, b_isbaseline=False):
+    subjects = data_utils.get_subject_ids(df, b_isbaseline)
+    cols     = list(df.columns)
     
+    subjects_str=", ".join(subjects)
+    cols_str = ", ".join(list(df.columns))
+
+    num_subjects = len(subjects)
+    num_days=len(df)
+    num_cols = len(cols)
+
+    names = ["Number of Participants","Number of Variables","Total Days","Subjects IDs","Variables"]
+    values = [num_subjects, num_cols, num_days, subjects_str, cols_str]
+
+    x=HTML(tabulate.tabulate(zip(names, values), tablefmt='html'))
+    x.data = x.data.replace("table", "table style='border-spacing: 0px; border-collapse: collapse; padding: 5px'")
+    x.data = x.data.replace("td", "td style='border: 1px solid black;padding: 5px '")
+    x.data = x.data
+    display(HTML("<H2>Summary Table: %s</H2>"%df.name))
+    display(x)
+
+def show_scores_table(df, table_name, subject='', cols=3, b_isbaseline=False):
+    df = df.set_index(subject)
+    columns = df.columns
+    
+    display(HTML("<H2>Scores by Participant: %s</H2>"%table_name))    
+    rows = int(np.ceil(len(columns)/3))
+    fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*10))
+    for i, field in enumerate(columns):
+        this_ax = axes[i//cols,i%cols]
+        df[field].plot(kind='barh', ax=this_ax)
+        this_ax.grid(True)
+        this_ax.set_title(field)
+    while (i+1 < (rows*cols)):
+        i=i+1
+        this_ax = axes[i//cols,i%cols]
+        fig.delaxes(this_ax)
+    plt.tight_layout()
+
+    rows = int(np.ceil(len(columns)/3))
+    fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
+    for i, field in enumerate(columns):
+        this_ax = axes[i//cols,i%cols]
+        df[field].hist(figure=fig, align='left', ax=this_ax)
+        this_ax.grid(True)
+        this_ax.set_title(field)
+    while (i+1 < (rows*cols)):
+        i=i+1
+        this_ax = axes[i//cols,i%cols]
+        fig.delaxes(this_ax)
+    plt.tight_layout()
+    plt.show()
     
 def show_data_dictionary(dd):
     display(HTML("<H2>Data Dictionary: %s</H2>"%dd.name))
