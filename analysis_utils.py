@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import math
+import collections
 
 import seaborn as sn
 import matplotlib.pyplot as plt
@@ -9,7 +11,7 @@ import statsmodels.api as sm
 import statsmodels.formula.api as smf
 from statsmodels.tsa.api import VAR
 from statsmodels.tsa.stattools import adfuller
-from statsmodels.graphics.tsaplots import plot_pacf
+from statsmodels.graphics.tsaplots import pacf, plot_pacf
 from scipy.stats import pearsonr
 
 from sklearn.linear_model import LogisticRegression
@@ -89,15 +91,45 @@ def check_stationary(df, names):
 def get_pacf(df, names):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
-    for i in range(0, len(names), 2):
-        fig, ax = plt.subplots(1,2, figsize=(12,3))
-        name = names[i]
-        title = name + ' Partial Autocorrelation'
-        plot_pacf(df[name], ax=ax[0], title=title)
-        if i+1 < len(names):
-            name = names[i+1]
-            title = name + ' Partial Autocorrelation'
-            plot_pacf(df[name], ax=ax[1], title=title)
+    df_group = df.groupby(by='Subject ID')
+    participant_ids = list(set(df.index.get_level_values(0)))
+
+    #Compute the pacf values for each participant, and aggregate the pacf values
+    for name in names:
+        pacf_averages = collections.defaultdict(list)
+        confidence_intervals = collections.defaultdict(list)
+        
+        for index, participant_id in enumerate(participant_ids):
+            df = df_group.get_group(participant_id)
+            current_threshold_lags = math.floor(df.shape[0]//2)-1
+            max_lags = 15
+            if (current_threshold_lags > max_lags) and (int(df[name].mean()) > 0):       
+                pacf_values, confidence_interval = pacf(df[name], nlags=max_lags, alpha=0.05)
+                lags = np.arange(max_lags+1)
+                #Plot for sanity test
+                #plot_pacf(df[name], lags=max_lags)
+                #plt.title(participant_id + ' ' + name + ' Partial Autocorrelation')
+                for i, lag in enumerate(lags):
+                    pacf_averages[lag].append(pacf_values[i])
+                    confidence_intervals[lag].append(confidence_interval[i])
+                    
+        lags = pacf_averages.keys()
+        pacf_values = np.array(list(pacf_averages.values()))
+        if len(pacf_values) > 0:
+            plt.figure()
+            pacf_values = pacf_values.mean(axis=1)
+            confidence_interval = np.array(list(confidence_intervals.values())).mean(axis=1)            
+            plt.fill_between(lags,
+                             confidence_interval[:, 0] - pacf_values,
+                             confidence_interval[:, 1] - pacf_values, alpha=0.25)
+            plt.scatter(lags, pacf_values, color='C0', zorder=2)
+            plt.bar(lags, pacf_values, width=0.1, color='black', zorder=1)
+            plt.axhline(y=0)
+            title = 'Average ' + name + ' Partial Autocorrelation'
+            plt.title(title)
+        else:
+            print('found no pacf values for', name)
+            
 
 def get_pearsonr(df, name, lagged_name, max_lag):
     print('correlation between %s and lagged %s:' % (name, lagged_name))
