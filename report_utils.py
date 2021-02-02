@@ -39,24 +39,24 @@ def format_numeric_with_nan(x, fmt="{:.0f}"):
         return(fmt.format(x))
 
 
-def morning_survey_response_report(dc, threshold=3):
+def morning_survey_response_report(dc, threshold=3, b_crop=False):
 
   #Get participants listing
   participants_df = data_utils.get_participant_info(dc)
-  participants_df=participants_df.set_index("Participant ID")
-
+  participants_df = participants_df.set_index("Participant ID")
+  
   #Select morning survey and get data frame
   product = "Morning Survey"
   df=data_utils.load_data(dc, product)
 
   #Select fields to use when computing response rate
-  fields = ["Busy", "Committed","Rested","Mood"]
+  fields = ["Busy", "Committed", "Rested", "Mood"]
 
   #Create an observation indicator for an observed value in any
-  #of the above fields. Sort to make sue data frame is in date order
+  #of the above fields. Sort to make sure data frame is in date order
   #per participant
   obs_df = 0+((0+~df[fields].isnull()).sum(axis=1)>0)
-  obs_df.sort_index(axis=0, inplace=True,level=1)
+  obs_df.sort_index(axis=0, inplace=True,level=1) 
 
   #Get the participant ids according to the data frame
   participants = list(obs_df.index.levels[0])
@@ -73,17 +73,31 @@ def morning_survey_response_report(dc, threshold=3):
     if(len(obs_df[p]))>0:
 
       #Get dates with data and record first and last dates with data
-      dates = pd.to_datetime(obs_df[p].index)
+      dates = pd.to_datetime(obs_df[p].index)     
       last_date = dates[-1]
       first_date = dates[0]
 
+      intervention_date = participants_df.loc[p]['Intervention Start Date']
+      end_date = participants_df.loc[p]['End Date']
+
+      new_obs_df = obs_df[p].copy()
+      if b_crop:
+          if str(intervention_date) != "nan":
+              intervention_date = pd.to_datetime(intervention_date)             
+              new_obs_df = new_obs_df.loc[dates >= intervention_date]
+              dates = pd.to_datetime(new_obs_df.index)
+          if status == 'withdrew':
+              new_obs_df = new_obs_df.loc[dates <= end_date]
+              dates = pd.to_datetime(new_obs_df.index)
+              last_date = dates[-1]
+
       #Compute all-time and weekly response rates
-      n_days = len(obs_df[p])
-      weekly_response_rate = obs_df[p][max(0,n_days-7):-1].mean()
-      alltime_response_rate = obs_df[p].mean()
+      n_days = len(new_obs_df)
+      weekly_response_rate = new_obs_df[max(0,n_days-7):-1].mean()
+      alltime_response_rate = new_obs_df.mean()
 
       #Determine whether it has been more than threshold days since last self report
-      dates_with_self_report = dates[obs_df[p]>0]
+      dates_with_self_report = dates[new_obs_df>0]
       if(len(dates_with_self_report)>0):
         last_date_with_self_report = dates_with_self_report.max()
         days_since_last_self_report = (last_date - last_date_with_self_report).days
@@ -104,17 +118,25 @@ def morning_survey_response_report(dc, threshold=3):
     else:
       #No data at all for participant
       #Record everything as missing
-      last_date = pd.NaT
+      last_date = pd.NaT      
       first_date = pd.NaT
+      intervention_date = pd.NaT
       last_date_with_self_report = pd.NaT
       days_since_last_self_report = np.nan
-      weekly_response_rate =np.nan
-      alltime_response_rate = np.nan 
+      weekly_response_rate = np.nan
+      alltime_response_rate = np.nan
       comments = comments + "No data found for this participant."
+
+    if b_crop:
+        start_key = "Intervention date"
+        start_value = intervention_date
+    else:
+        start_key = "First date"
+        start_value = first_date
 
     #Create dataframe row
     response_data.append({"Subject ID":p, 
-                          "First date":first_date,
+                          start_key:start_value,
                           "Last date":last_date,
                           "All time response rate": alltime_response_rate,
                           "7-day response rate": weekly_response_rate,
@@ -130,15 +152,16 @@ def morning_survey_response_report(dc, threshold=3):
   #Style the dataframe
   df_mis_report=df_mis_report.style.apply(highlight_greaterthan, threshold=threshold, column="Days overdue", axis=None)\
     .format({'Days overdue': format_numeric_with_nan,\
-             "All time response rate": "{:.1%}",\
-             "7-day response rate": "{:.1%}",\
+             'All time response rate': "{:.1%}",\
+             '7-day response rate': "{:.1%}",\
              'Last date':format_date,\
              'Last Morning Survey': format_date,\
-             "First date":format_date})\
+             'Intervention date':format_date,\
+             start_key:format_date})\
     .set_table_attributes('cellpadding=5')\
     .hide_index()\
     .apply(lambda s: ["text-align: right"]*len(s), subset=["Days overdue","All time response rate","7-day response rate"])\
-    .apply(lambda s: ["text-align: center"]*len(s), subset=["Subject ID","First date","Last date","Last Morning Survey"])\
+    .apply(lambda s: ["text-align: center"]*len(s), subset=["Subject ID",start_key,"Last date","Last Morning Survey"])\
     .apply(lambda s: ["text-align: left"]*len(s), subset=["Comments"])\
 
   return(df_mis_report)

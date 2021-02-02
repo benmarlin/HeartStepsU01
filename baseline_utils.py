@@ -5,7 +5,7 @@ import sys, getopt
 def main(argv):
 
     #For example, run the following command:
-    #baseline_utils.py -d HeartSteps_DataDictionary_2021-01-22.csv -f HeartSteps-BaselineSurveyData_DATA_2021-01-06_1422.csv
+    #baseline_utils.py -d HeartSteps_DataDictionary_2021-01-22.csv -f HeartSteps-BaselineSurveyData_DATA_2021-01-27_1340.csv
 
     try:
         opts, args = getopt.getopt(argv,"d:f:",["data_dictionary=","data="])
@@ -23,7 +23,7 @@ def main(argv):
 
     if data_dictionary_filename == '' or data_filename == '':
         print("baseline_utils.py -d <data_dictionary_filename> -f <data_filename>")
-        sys.exit()
+        sys.exit()        
 
     print('input dd    =', data_dictionary_filename)
     print('input df    =', data_filename)    
@@ -87,7 +87,7 @@ def main(argv):
     df = df.drop(columns=['baseline_survey_2_complete'])
     
     dd_categorical = dd[dd['DataType'] == 'Categorical']['ElementName']
-    dd_binary   = dd[dd['DataType'] == 'Boolean' ]['ElementName']
+    dd_binary = dd[dd['DataType'] == 'Boolean' ]['ElementName']
 
     for field in list(df.keys()):        
         pos = field.find('___')
@@ -200,9 +200,52 @@ def main(argv):
         scores[k] = [(x+y)/2 for x, y in zip(item0, item1)]
     scores = pd.DataFrame(scores).set_index(df['study_id'])
 
-    tipi_scores = 'baseline-survey-tipi.csv'
-    scores.to_csv(tipi_scores)
-    print('TIPI scores =', tipi_scores)
+    tipi_scores_filename = 'baseline-survey-tipi.csv'
+    scores.to_csv(tipi_scores_filename)
+    print('TIPI scores =', tipi_scores_filename)
+
+
+    #--------------------------------------------------------------------------------
+    #Create BREQ-2 Motivation scores
+
+    motivation_names = {}
+    count = 0
+    for name in list(df.columns):
+        if str(name).lower().find('motivation') != -1:
+            motivation_names[count+1] = name
+            count += 1
+    assert(count == 19), 'there should be 19 motivation columns'
+
+    def map_to_name(scales):
+        names = []
+        for scale in scales:
+            names.append(motivation_names[scale])
+        return names
+
+    df_motivation = {}
+    df_motivation['Amotivation']            = map_to_name([5, 9, 12, 19])
+    df_motivation['External regulation']    = map_to_name([1, 6, 11, 16])
+    df_motivation['Introjected regulation'] = map_to_name([2, 7, 13])
+    df_motivation['Identified regulation']  = map_to_name([3, 8, 14, 17])
+    df_motivation['Intrinsic regulation']   = map_to_name([4, 10, 15, 18])
+
+    df_data = df[motivation_names.values()]
+    for name in df_data.columns:
+        for i, x in enumerate(df_data[name]):            
+            if str(x).lower()=="nan":
+                value = x
+            else:
+                value = int(str(x).split(':')[0])
+            df_data.loc[i][name] = value
+
+    scores = {}
+    for k,v in df_motivation.items():
+        scores[k] = df_data[v].mean(axis=1)    
+    scores = pd.DataFrame(scores).set_index(df['study_id'])
+
+    motivation_scores_filename = 'baseline-survey-motivation.csv'
+    scores.to_csv(motivation_scores_filename)
+    print('Motivation scores =', motivation_scores_filename)    
 
 if __name__ == '__main__':    
      main(sys.argv[1:])
