@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import datetime as dt
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MaxNLocator
 import seaborn
@@ -79,13 +80,20 @@ def morning_survey_response_report(dc, threshold=3, b_crop=False):
 
       intervention_date = participants_df.loc[p]['Intervention Start Date']
       end_date = participants_df.loc[p]['End Date']
-
+    
       new_obs_df = obs_df[p].copy()
       if b_crop:
-          if str(intervention_date) != "nan":
+          if str(intervention_date).lower() != "nan":
               intervention_date = pd.to_datetime(intervention_date)             
               new_obs_df = new_obs_df.loc[dates >= intervention_date]
               dates = pd.to_datetime(new_obs_df.index)
+              today = pd.to_datetime(dt.date.today())
+              if intervention_date > today:
+                  print('{:<3} intervention date {} is past today\'s date {}'.format(
+                          p, intervention_date.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')))
+          else:
+              print('{:<3} missing intervention date'.format(p))
+              continue
           if status == 'withdrew':
               new_obs_df = new_obs_df.loc[dates <= end_date]
               dates = pd.to_datetime(new_obs_df.index)
