@@ -177,22 +177,7 @@ def show_scores_table(df, table_name, subject='', xlim=None, cols=3):
     df = df.set_index(subject)
     columns = df.columns
     
-    display(HTML("<H2>Scores by Participant and Histograms: %s</H2>"%table_name))    
-    rows = int(np.ceil(len(columns)/3))
-    fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*10))
-    for i, field in enumerate(columns):
-        this_ax = axes[i//cols,i%cols]
-        df[field].plot(kind='barh', ax=this_ax)
-        this_ax.grid(True)
-        this_ax.set_title(field)
-        if xlim != None:
-            this_ax.set_xlim(xlim) 
-    while (i+1 < (rows*cols)):
-        i=i+1
-        this_ax = axes[i//cols,i%cols]
-        fig.delaxes(this_ax)
-    plt.tight_layout()
-
+    display(HTML("<H2>Histograms of %s</H2>"%table_name))    
     rows = int(np.ceil(len(columns)/3))
     fig, axes = plt.subplots(rows, cols, figsize=(4*3,rows*3))
     for i, field in enumerate(columns):
