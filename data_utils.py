@@ -108,8 +108,9 @@ def get_participants_by_type(data_catalog, participant_type):
     pi = pi[pi["Participant Type"]==participant_type]
     return(pi)
 
-def crop_data(participants_df, df, b_display):
-    #Crop before the intervention start date   
+def crop_data(participants_df, df, b_display, b_crop_end=True):
+    #Crop before the intervention start date
+    #Set b_crop_end = True to also crop after the end date (for withdrew status)
     participants_df = participants_df.set_index("Participant ID")
     fields = list(df.keys())
     #Create an observation indicator for an observed value in any
@@ -139,6 +140,13 @@ def crop_data(participants_df, df, b_display):
                 dates_df = pd.to_datetime(df.loc[p].index)
                 new_df = df.loc[p].copy()
                 new_df = new_df.loc[dates_df >= intervention_date]
+                if b_crop_end:
+                    status = participants_df.loc[p]["Participant Status"]
+                    end_date = participants_df.loc[p]['End Date']                    
+                    if status == 'withdrew':
+                        end_date = pd.to_datetime(end_date)
+                        dates_df = pd.to_datetime(new_df.index)
+                        new_df = new_df.loc[dates_df <= end_date]
                 new_df['Subject ID'] = p
                 new_df = new_df.reset_index()
                 new_df['Date'] = pd.to_datetime(new_df['Date']).dt.strftime('%Y-%m-%d')
@@ -162,7 +170,7 @@ def load_data(data_catalog, data_product, b_crop=True, b_display=True):
     df = fix_df_column_types(df,data_dictionary)    
     df = df.sort_index(level=0)
     if b_crop:        
-        df = crop_data(participant_df, df, b_display)
+        df = crop_data(participant_df, df, b_display, b_crop_end=True)
     df.name = data_dictionary.name        
     return(df)
 
