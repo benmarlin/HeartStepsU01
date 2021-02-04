@@ -1,5 +1,6 @@
 import numpy as np
 import pandas as pd
+import datetime as dt
 import os
 import zipfile
 from datetime import datetime, timedelta
@@ -107,15 +108,62 @@ def get_participants_by_type(data_catalog, participant_type):
     pi = pi[pi["Participant Type"]==participant_type]
     return(pi)
 
-def load_data(data_catalog, data_product):
-    participant_df   = get_participants_by_type(data_catalog,"full")
+def crop_data(participants_df, df, b_display):
+    #Crop before the intervention start date   
+    participants_df = participants_df.set_index("Participant ID")
+    fields = list(df.keys())
+    #Create an observation indicator for an observed value in any
+    #of the above fields. Sort to make sure data frame is in date order
+    #per participant
+    obs_df = 0+((0+~df[fields].isnull()).sum(axis=1)>0)
+    obs_df.sort_index(axis=0, inplace=True,level=1)
+    #Get the participant ids according to the data frame
+    participants = list(obs_df.index.levels[0])
+    frames = []
+    for p in participants:
+        intervention_date = participants_df.loc[p]['Intervention Start Date']
+        dates = pd.to_datetime(obs_df[p].index)
+        #Check if there is any data for the participant
+        if(len(obs_df[p]))>0:
+            new_obs_df = obs_df[p].copy()
+            if str(intervention_date).lower() != "nan":
+                #Check if intervention date is past today's date
+                intervention_date = pd.to_datetime(intervention_date)
+                new_obs_df = new_obs_df.loc[dates >= intervention_date]
+                dates = pd.to_datetime(new_obs_df.index)
+                today = pd.to_datetime(dt.date.today())
+                if (intervention_date > today) and b_display:
+                  print('{:<3} intervention date {} is past today\'s date {}'.format(
+                          p, intervention_date.strftime('%Y-%m-%d'), today.strftime('%Y-%m-%d')))
+                #Crop before the intervention start date
+                dates_df = pd.to_datetime(df.loc[p].index)
+                new_df = df.loc[p].copy()
+                new_df = new_df.loc[dates_df >= intervention_date]
+                new_df['Subject ID'] = p
+                new_df = new_df.reset_index()
+                new_df['Date'] = pd.to_datetime(new_df['Date']).dt.strftime('%Y-%m-%d')
+                new_df = new_df.set_index(['Subject ID', 'Date'])
+                frames.append(new_df)
+            else:
+                if b_display:
+                    print('{:<3} missing intervention date'.format(p))
+                continue
+    if len(frames) > 0:
+        df = pd.concat(frames)
+        df = df.sort_index(level=0)
+    return df
+
+def load_data(data_catalog, data_product, b_crop=True, b_display=True):
+    participant_df  = get_participants_by_type(data_catalog,"full")
     data_dictionary = get_data_dictionary(data_catalog, data_product)
     df = get_df_from_zip(data_dictionary.data_file_name, data_catalog.data_file, participant_df)
     index = [x.strip() for x in data_dictionary.index_fields.split(";")]
     df = df.set_index(index)
     df = fix_df_column_types(df,data_dictionary)    
     df = df.sort_index(level=0)
-    df.name = data_dictionary.name
+    if b_crop:        
+        df = crop_data(participant_df, df, b_display)
+    df.name = data_dictionary.name        
     return(df)
 
 def load_baseline(data_catalog, data_product, filename):
