@@ -16,6 +16,7 @@ from scipy.stats import pearsonr
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.impute import IterativeImputer, KNNImputer
 
 from . import data_utils
 
@@ -87,13 +88,54 @@ def check_stationary(df, names):
         else: # failed to reject Ho
             print('%s time series is non-stationary' % name)
         print()
+
+def impute(df, methods):
+    #Impute missing data using method = IterativeImputer, KNNImputer:2 (using 2 neighbors)...
+    #methods is a dictionary of key, value, where key contains the method 
+    #and value contains all the columns where the method is applied.
+    df = df.replace({True: 1, False: 0})   
+    df_group = df.groupby(by='Subject ID')
+    participant_ids = list(set(df.index.get_level_values(0)))
+    frames = []
+    #Impute for each participant
+    for participant_id in participant_ids:
+        df_i = df_group.get_group(participant_id)        
+        df_i = df_i.reset_index()
+        df_i = df_i.set_index(['Date'])
+        for method, columns in methods.items():
+            if method == 'IterativeImputer':
+                imputer = IterativeImputer()
+            elif method.find('KNNImputer:') >= 0:
+                method_array = method.split(':')
+                n_neighbors = int(method_array[1])
+                imputer = KNNImputer(n_neighbors=n_neighbors, copy=False)
+            else:
+                #sklearn KNNImputer default uses 5 neighbors
+                imputer = KNNImputer(copy=False)                
+            X = df_i[columns].copy()
+            X = X.reset_index()
+            #sklearn imputer returns an array, so store and add back column names
+            all_column_names = X.columns
+            X_imputed = pd.DataFrame(imputer.fit_transform(X[columns]))           
+            if X_imputed.shape[1] != X[columns].shape[1]:
+                print('cannot impute participant %s' % participant_id)
+                continue           
+            X[columns] = X_imputed
+            X.columns = all_column_names
+            X = X.set_index(['Date'])           
+            df_i[columns] = X
+        df_i = df_i.reset_index().set_index(['Subject ID', 'Date'])        
+        frames.append(df_i)
+    df = pd.concat(frames)
+    df = df.sort_index(level='Subject ID')
+    return df
         
-def get_pacf(df, names):
+def get_pacf(df, names):   
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
     df_group = df.groupby(by='Subject ID')
     participant_ids = list(set(df.index.get_level_values(0)))
-
+    
     #Compute the pacf values for each participant, and aggregate the pacf values
     for name in names:
         pacf_averages = collections.defaultdict(list)
