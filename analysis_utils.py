@@ -47,6 +47,11 @@ def process_previous_fitbit_data(df):
     df.loc[df.groupby('Subject ID')['Previous Worn'].head(1).index,  'Previous Worn']  = 0    
     return df
 
+def convert_column_to_binary(df, column_name):
+    #Set to 0 if value = 0, and 1 if value > 0
+    df[column_name] = df[column_name].apply(lambda x: 1 if x > 0 else 0)
+    return df
+
 def plot_time_series(df, y_name, count):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
