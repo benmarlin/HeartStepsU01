@@ -172,7 +172,6 @@ def get_pacf(df, names):
         else:
             print('found no pacf values for', name)
             
-
 def get_pearsonr(df, name, lagged_name, max_lag):
     print('correlation between %s and lagged %s:' % (name, lagged_name))
     df = df.dropna()
@@ -211,20 +210,31 @@ def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
     
 def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
-                family=sm.families.Gaussian(), cov_struct=sm.cov_struct.Exchangeable()):
+                family='Gaussian', cov_struct='Exchangeable'):
+    #Perform GEE Linear Regression (additional options are fixed_effect, family and cov_struct)
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
     df = df.reset_index()
 
     if family == 'Gaussian':
-        family = sm.families.Gaussian()
+        fam = sm.families.Gaussian()
     elif family == 'Poisson':
-        family = sm.families.Poisson()
+        fam = sm.families.Poisson()
+    elif family == 'Binomial':
+        fam = sm.families.Binomial()
+    else:
+        print('undefined family = %s, family is set to Gaussian' % family)
+        family = 'Gaussian'
+        fam = sm.families.Gaussian()
 
     if cov_struct == 'Independence':
-        cov_struct = sm.cov_struct.Independence() 
+        cov = sm.cov_struct.Independence() 
     elif cov_struct == 'Exchangeable':
-        cov_struct = sm.cov_struct.Exchangeable() 
+        cov = sm.cov_struct.Exchangeable()
+    else:
+        print('undefined cov_struct = %s, cov_struct is set to Exchangeable' % cov_struct)
+        cov_struct = 'Exchangeable'
+        cov = sm.cov_struct.Exchangeable()
 
     df.columns = [update_name(x) for x in df.columns]
     y_name = update_name(y_name)
@@ -244,17 +254,22 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         equation += " + C(" + fixed_effect + ")"
         figsize = (10,14)
     
-    model = smf.gee(equation, data=df, groups=groups, family=family, cov_struct=cov_struct)
-    results = model.fit()
+    if family == 'Binomial':
+        x_array = [update_name(x) for x in x_array]        
+        model = sm.GEE(endog=df[y_name], exog=df[x_array], groups=df[groups], family=fam, cov_struct=cov)
+    else:
+        model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)
 
-    print('%s =\n%s' % (y_name, results.summary()))
+    results = model.fit()    
+
+    print('%s =\n%s\n\n\n' % (y_name, results.summary()))
         
     df_coef = results.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
     plt.grid(True)
-    plt.title(y_name + ' using GEE Regression')
-    
+    title = y_name + ' using GEE ' + family + ' ' + cov_struct
+    plt.title(title)    
 
 def perform_linear_regression(df, y_name, b_fixed_effect=False):
     #Perform three linear regressions: OLS, GEE, Mixed Linear Model
@@ -315,23 +330,15 @@ def perform_linear_regression(df, y_name, b_fixed_effect=False):
     ax.axvline(0, color='black', lw=1)
     plt.grid(True)
     plt.title(y_display + ' using Mixed Linear Model Regression')
-    
 
-def perform_classification(df, b_split_per_participant):
+def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display=True):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
-   
-    #Turn Fitbit Step Count per day into a binary variable steps = 0 and steps > 0
-    column_name = 'Fitbit Step Count'
-    df[column_name] = df[column_name].apply(lambda x: 1 if x > 0 else 0)
-
-    #Split the data and targets into training/testing sets
-    split_percent = 0.8
-
+    
     if b_split_per_participant:
         df = df.drop(columns=['Fitbit Minutes Worn'])       
-        X = df.drop(columns=column_name)
-        y = df[column_name]        
+        X = df.drop(columns=y_name)
+        y = df[y_name]        
         X_train = X.groupby('Subject ID').apply(lambda x: x.head(round(split_percent * len(x))))
         y_train = y.groupby('Subject ID').apply(lambda x: x.head(round(split_percent * len(x))))
         X_test  = X.groupby('Subject ID').apply(lambda x: x.tail(len(x) - round(split_percent * len(x))))
@@ -341,26 +348,35 @@ def perform_classification(df, b_split_per_participant):
     else:
         df = df.reset_index()
         df = df.drop(columns=['Fitbit Minutes Worn', 'Subject ID', 'Date'])
-        X = df.drop(columns=column_name).values
-        y = df[column_name].values
+        X = df.drop(columns=y_name).values
+        y = df[y_name].values
         split = int(len(X) * split_percent)
         X_train = X[:split]
         y_train = y[:split]
         X_test  = X[split:]
         y_test  = y[split:]
 
-    print('Classification for ' + column_name)
-    print('\ntrain split   = {}%'.format(int(split_percent*100)))
-    print('X_train.shape =', X_train.shape)
-    print('y_train.shape =', y_train.shape)
-    print('X_test.shape  =', X_test.shape)
-    print('y_test.shape  =', y_test.shape)    
+    if b_display:
+        print('Classification for ' + y_name)
+        print('\ntrain split   = {}%'.format(int(split_percent*100)))
+        print('X_train.shape =', X_train.shape)
+        print('y_train.shape =', y_train.shape)
+        print('X_test.shape  =', X_test.shape)
+        print('y_test.shape  =', y_test.shape)
+        
+    return (X_train, y_train, X_test, y_test)
+
+def perform_classification(df, y_name, b_split_per_participant):
+    
+    #Split the data and targets into training/testing sets
+    split_data_tuple = split_data(df, y_name, b_split_per_participant=True)
+    (X_train, y_train, X_test, y_test) = split_data_tuple
 
     model = LogisticRegression(solver='lbfgs', random_state=0)
     model.fit(X_train, y_train)
     y_predict = model.predict(X_test)
 
     print('\nmodel =', model)
-    print('\ntrain accuracy =', accuracy_score(y_train, model.predict(X_train)))
-    print('test  accuracy =', accuracy_score(y_test,  model.predict(X_test)))
+    print('\ntrain accuracy = %s' % accuracy_score(y_train, model.predict(X_train)))
+    print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
