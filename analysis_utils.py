@@ -52,23 +52,38 @@ def convert_column_to_binary(df, column_name):
     df[column_name] = df[column_name].apply(lambda x: 1 if x > 0 else 0)
     return df
 
-def plot_time_series(df, y_name, count):
+def plot_time_series(df, y_name, subject_names):
+    #Plot time series for subjects in subject_names
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
+    #Check if the subject name exists in the data
+    participants = data_utils.get_subject_ids(df)
+    for subject_id in subject_names:
+        if subject_id not in participants:
+            print('cannot find Participant ID =', subject_id)
+            subject_names.remove(subject_id)
+    if len(subject_names) > 1:
+        df = df.loc[subject_names,:]
+    subjects = list(df.index)
+    #Plot time series, with mean per day
     plt.figure(figsize=(12,2))
+    all_steps = collections.defaultdict(list)
     previous = ''
-    for row, value in enumerate(list(df.index)):
+    for value in subjects:
         subject_id = value[0]
         date = value[1]
         step = df.loc[subject_id, date][y_name]        
         if previous != subject_id:
             previous = subject_id
             steps = list(df.loc[subject_id,:][y_name])
-            plt.plot(steps, label=subject_id)
-            count -= 1
-        if count == 0:
-            break
-    plt.legend(loc=1)
+            for pos, num in enumerate(steps):
+                all_steps[pos].append(num)
+            label = subject_id if len(subject_names) < 10 else ''
+            plt.plot(steps, label=label)
+    xs = list(all_steps.keys())
+    ys = [np.mean(steps) for steps in list(all_steps.values())]
+    plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
+    plt.legend(loc=2, fontsize=8)
     plt.ylabel(y_name)
     plt.xlabel('number of days')
     plt.title(y_name)
