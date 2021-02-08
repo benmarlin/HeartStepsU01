@@ -266,8 +266,9 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)
 
     results = model.fit()    
-
-    print('%s =\n%s\n\n\n' % (y_name, results.summary()))
+    (QIC, QICu) = results.qic(results.scale)
+    print('%s =\n%s\n%s\n%s %s QIC = %.4f, QICu = %.4f\n\n\n' % (
+           y_name, results.summary(), cov.summary(), family, cov_struct, QIC, QICu))
         
     df_coef = results.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
@@ -309,12 +310,16 @@ def perform_linear_regression(df, y_name, b_fixed_effect=False):
     res0 = mod.fit()
     print('%s =\n%s\n\n\n' % (y_display, res0.summary()))
 
-    ex = sm.cov_struct.Exchangeable()
-    mod = smf.gee(model, "subject_id", data=df, cov_struct=ex)    
-    res1 = mod.fit()
-    print('%s =\n%s\n\n\n' % (y_display, res1.summary()))
+    fam_display = 'Gaussian'
+    cov_display = 'Exchangeable'
+    cov = sm.cov_struct.Exchangeable()
+    mod = smf.gee(model, "subject_id", data=df, cov_struct=cov)    
+    res1 = mod.fit()    
+    (QIC, QICu) = res1.qic(res1.scale)
+    print('%s =\n%s\n%s\n%s %s QIC = %.4f, QICu = %.4f\n\n\n' % (
+           y_name, res1.summary(), cov.summary(), fam_display, cov_display, QIC, QICu))
 
-    mod = smf.mixedlm(model, df, groups="subject_id")    
+    mod = smf.mixedlm(model, df, groups=df['subject_id'])    
     res2 = mod.fit()
     print('%s =\n%s\n\n\n' % (y_display, res2.summary()))
     
