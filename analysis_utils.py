@@ -215,7 +215,7 @@ def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
     
 def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
-                family='Gaussian', cov_struct='Exchangeable'):
+                family='Gaussian', cov_struct='Exchangeable', x_lim=None):
     #Perform GEE Linear Regression (additional options are fixed_effect, family and cov_struct)
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
@@ -273,11 +273,13 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
     df_coef = results.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     title = y_name + ' using GEE ' + family + ' ' + cov_struct
-    plt.title(title)    
+    plt.title(title)
 
-def perform_linear_regression(df, y_name, b_fixed_effect=False):
+def perform_linear_regression(df, y_name, b_fixed_effect=False, x_lim=None):
     #Perform three linear regressions: OLS, GEE, Mixed Linear Model
     
     df = df.dropna()
@@ -326,18 +328,24 @@ def perform_linear_regression(df, y_name, b_fixed_effect=False):
     df_coef = res0.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     plt.title(y_display + ' using OLS')
     
     df_coef = res1.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     plt.title(y_display + ' using GEE Regression')
 
     df_coef = res2.params[:len(res2.params)-1].to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     plt.title(y_display + ' using Mixed Linear Model Regression')
 
