@@ -52,25 +52,40 @@ def convert_column_to_binary(df, column_name):
     df[column_name] = df[column_name].apply(lambda x: 1 if x > 0 else 0)
     return df
 
-def plot_time_series(df, y_name, count):
+def plot_time_series(df, y_name, subject_names):
+    #Plot time series for subjects in subject_names
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
+    #Check if the subject name exists in the data
+    participants = data_utils.get_subject_ids(df)
+    for subject_id in subject_names:
+        if subject_id not in participants:
+            print('cannot find Participant ID =', subject_id)
+            subject_names.remove(subject_id)
+    if len(subject_names) > 1:
+        df = df.loc[subject_names,:]
+    subjects = list(df.index)
+    #Plot time series, with mean per day
     plt.figure(figsize=(12,2))
+    all_steps = collections.defaultdict(list)
     previous = ''
-    for row, value in enumerate(list(df.index)):
+    for value in subjects:
         subject_id = value[0]
         date = value[1]
         step = df.loc[subject_id, date][y_name]        
         if previous != subject_id:
             previous = subject_id
             steps = list(df.loc[subject_id,:][y_name])
-            plt.plot(steps, label=subject_id)
-            count -= 1
-        if count == 0:
-            break
-    plt.legend(loc=1)
+            for pos, num in enumerate(steps):
+                all_steps[pos].append(num)
+            label = subject_id if len(subject_names) < 10 else ''
+            plt.plot(steps, label=label)
+    xs = list(all_steps.keys())
+    ys = [np.mean(steps) for steps in list(all_steps.values())]
+    plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
+    plt.legend(loc=2, fontsize=8)
     plt.ylabel(y_name)
-    plt.xlabel('number of days')
+    plt.xlabel('Number of days')
     plt.title(y_name)
 
 def check_stationary(df, names):
@@ -215,7 +230,7 @@ def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
     
 def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
-                family='Gaussian', cov_struct='Exchangeable'):
+                family='Gaussian', cov_struct='Exchangeable', x_lim=None):
     #Perform GEE Linear Regression (additional options are fixed_effect, family and cov_struct)
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
@@ -253,7 +268,7 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         else:
             equation += ' + ' + covariate
 
-    figsize = (10,4)
+    figsize = (10,3)
     if fixed_effect != '':
         fixed_effect = update_name(fixed_effect)
         equation += " + C(" + fixed_effect + ")"
@@ -266,17 +281,23 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)
 
     results = model.fit()    
-
-    print('%s =\n%s\n\n\n' % (y_name, results.summary()))
+    (QIC, QICu) = results.qic(results.scale)
+    print('%s =\n%s\n%s\n%s %s QIC = %.4f, QICu = %.4f\n\n\n' % (
+           y_name, results.summary(), cov.summary(), family, cov_struct, QIC, QICu))
         
     df_coef = results.params.to_frame().rename(columns={0: 'coef'})
-    ax = df_coef.plot.barh(figsize=figsize)
+    figsize_gee = figsize
+    if df_coef.shape[0] < 3:
+        figsize_gee = (10, max(1, df_coef.shape[0]//2))   
+    ax = df_coef.plot.barh(figsize=figsize_gee)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     title = y_name + ' using GEE ' + family + ' ' + cov_struct
-    plt.title(title)    
+    plt.title(title)
 
-def perform_linear_regression(df, y_name, b_fixed_effect=False):
+def perform_linear_regression(df, y_name, b_fixed_effect=False, x_lim=None):
     #Perform three linear regressions: OLS, GEE, Mixed Linear Model
     
     df = df.dropna()
@@ -297,7 +318,7 @@ def perform_linear_regression(df, y_name, b_fixed_effect=False):
     equation  = " ~ busy + committed + rested + energetic"
     equation += " + fatigued + happy + relaxed + sad + stressed + tense"
 
-    figsize = (10,4)
+    figsize = (10,3)
     if b_fixed_effect:
         #Add unconditional fixed effect on Subject ID
         equation += " + C(subject_id)"
@@ -309,30 +330,40 @@ def perform_linear_regression(df, y_name, b_fixed_effect=False):
     res0 = mod.fit()
     print('%s =\n%s\n\n\n' % (y_display, res0.summary()))
 
-    ex = sm.cov_struct.Exchangeable()
-    mod = smf.gee(model, "subject_id", data=df, cov_struct=ex)    
-    res1 = mod.fit()
-    print('%s =\n%s\n\n\n' % (y_display, res1.summary()))
+    fam_display = 'Gaussian'
+    cov_display = 'Exchangeable'
+    cov = sm.cov_struct.Exchangeable()
+    mod = smf.gee(model, "subject_id", data=df, cov_struct=cov)    
+    res1 = mod.fit()    
+    (QIC, QICu) = res1.qic(res1.scale)
+    print('%s =\n%s\n%s\n%s %s QIC = %.4f, QICu = %.4f\n\n\n' % (
+           y_name, res1.summary(), cov.summary(), fam_display, cov_display, QIC, QICu))
 
-    mod = smf.mixedlm(model, df, groups="subject_id")    
+    mod = smf.mixedlm(model, df, groups=df['subject_id'])    
     res2 = mod.fit()
     print('%s =\n%s\n\n\n' % (y_display, res2.summary()))
     
     df_coef = res0.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     plt.title(y_display + ' using OLS')
     
     df_coef = res1.params.to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     plt.title(y_display + ' using GEE Regression')
 
     df_coef = res2.params[:len(res2.params)-1].to_frame().rename(columns={0: 'coef'})
     ax = df_coef.plot.barh(figsize=figsize)
     ax.axvline(0, color='black', lw=1)
+    if x_lim != None:
+        ax.set_xlim(x_lim)
     plt.grid(True)
     plt.title(y_display + ' using Mixed Linear Model Regression')
 
@@ -371,17 +402,34 @@ def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display
         
     return (X_train, y_train, X_test, y_test)
 
-def perform_classification(df, y_name, b_split_per_participant):
-    
+def perform_classification(df, y_name, b_split_per_participant):    
     #Split the data and targets into training/testing sets
     split_data_tuple = split_data(df, y_name, b_split_per_participant=True)
     (X_train, y_train, X_test, y_test) = split_data_tuple
-
+    
     model = LogisticRegression(solver='lbfgs', random_state=0)
     model.fit(X_train, y_train)
     y_predict = model.predict(X_test)
-
+    
     print('\nmodel =', model)
     print('\ntrain accuracy = %s' % accuracy_score(y_train, model.predict(X_train)))
     print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
+def analyze_fitbit_worn_threshold(df, thresholds):
+    number_of_participants = []
+    for threshold in thresholds:
+        name = 'Worn > ' + str(threshold) + ' hrs'
+        df_threshold = df.copy()        
+        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > 60*threshold else 0)
+        df_threshold = df_threshold[df_threshold['Fitbit Step Count'] > 0]       
+        df_threshold = df_threshold[df_threshold[name] == 1]
+        participants = list(set([x[0] for x in df_threshold['Fitbit Step Count'].index.values]))
+        n_participants = len(participants)
+        number_of_participants.append(n_participants)
+        print('%s \tnumber of participants = %d' % (name, n_participants))
+        
+    plt.figure(figsize=(4,3))
+    plt.plot(thresholds, number_of_participants)
+    plt.xlabel('Hours worn per day')
+    plt.ylabel('Number of participants')
+    return df
