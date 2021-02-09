@@ -415,21 +415,24 @@ def perform_classification(df, y_name, b_split_per_participant):
     print('\ntrain accuracy = %s' % accuracy_score(y_train, model.predict(X_train)))
     print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
-def analyze_fitbit_worn_threshold(df, thresholds):
+def analyze_fitbit_worn_threshold(df, thresholds):   
+    #Thresholds are in minutes
     number_of_participants = []
+    steps_per_day = []
     for threshold in thresholds:
-        name = 'Worn > ' + str(threshold) + ' hrs'
+        name = 'Worn > ' + str(threshold) + ' minutes'
         df_threshold = df.copy()        
-        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > 60*threshold else 0)
+        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
         df_threshold = df_threshold[df_threshold['Fitbit Step Count'] > 0]       
         df_threshold = df_threshold[df_threshold[name] == 1]
         participants = list(set([x[0] for x in df_threshold['Fitbit Step Count'].index.values]))
         n_participants = len(participants)
         number_of_participants.append(n_participants)
-        print('%s \tnumber of participants = %d' % (name, n_participants))
+        print('%s\t(steps > 0)\tnumber of participants = %d' % (name, n_participants))
         
     plt.figure(figsize=(4,3))
     plt.plot(thresholds, number_of_participants)
-    plt.xlabel('Hours worn per day')
+    plt.xlabel('Minutes worn per day (steps > 0)')
     plt.ylabel('Number of participants')
+    plt.title('Fitbit Minutes Worn (steps > 0)')
     return df
