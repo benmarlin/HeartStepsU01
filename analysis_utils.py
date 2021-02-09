@@ -85,7 +85,7 @@ def plot_time_series(df, y_name, subject_names):
     plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
     plt.legend(loc=2, fontsize=8)
     plt.ylabel(y_name)
-    plt.xlabel('number of days')
+    plt.xlabel('Number of days')
     plt.title(y_name)
 
 def check_stationary(df, names):
@@ -268,7 +268,7 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         else:
             equation += ' + ' + covariate
 
-    figsize = (10,4)
+    figsize = (10,3)
     if fixed_effect != '':
         fixed_effect = update_name(fixed_effect)
         equation += " + C(" + fixed_effect + ")"
@@ -286,7 +286,10 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
            y_name, results.summary(), cov.summary(), family, cov_struct, QIC, QICu))
         
     df_coef = results.params.to_frame().rename(columns={0: 'coef'})
-    ax = df_coef.plot.barh(figsize=figsize)
+    figsize_gee = figsize
+    if df_coef.shape[0] < 3:
+        figsize_gee = (10, max(1, df_coef.shape[0]//2))   
+    ax = df_coef.plot.barh(figsize=figsize_gee)
     ax.axvline(0, color='black', lw=1)
     if x_lim != None:
         ax.set_xlim(x_lim)
@@ -315,7 +318,7 @@ def perform_linear_regression(df, y_name, b_fixed_effect=False, x_lim=None):
     equation  = " ~ busy + committed + rested + energetic"
     equation += " + fatigued + happy + relaxed + sad + stressed + tense"
 
-    figsize = (10,4)
+    figsize = (10,3)
     if b_fixed_effect:
         #Add unconditional fixed effect on Subject ID
         equation += " + C(subject_id)"
@@ -399,17 +402,34 @@ def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display
         
     return (X_train, y_train, X_test, y_test)
 
-def perform_classification(df, y_name, b_split_per_participant):
-    
+def perform_classification(df, y_name, b_split_per_participant):    
     #Split the data and targets into training/testing sets
     split_data_tuple = split_data(df, y_name, b_split_per_participant=True)
     (X_train, y_train, X_test, y_test) = split_data_tuple
-
+    
     model = LogisticRegression(solver='lbfgs', random_state=0)
     model.fit(X_train, y_train)
     y_predict = model.predict(X_test)
-
+    
     print('\nmodel =', model)
     print('\ntrain accuracy = %s' % accuracy_score(y_train, model.predict(X_train)))
     print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
+def analyze_fitbit_worn_threshold(df, thresholds):
+    number_of_participants = []
+    for threshold in thresholds:
+        name = 'Worn > ' + str(threshold) + ' hrs'
+        df_threshold = df.copy()        
+        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > 60*threshold else 0)
+        df_threshold = df_threshold[df_threshold['Fitbit Step Count'] > 0]       
+        df_threshold = df_threshold[df_threshold[name] == 1]
+        participants = list(set([x[0] for x in df_threshold['Fitbit Step Count'].index.values]))
+        n_participants = len(participants)
+        number_of_participants.append(n_participants)
+        print('%s \tnumber of participants = %d' % (name, n_participants))
+        
+    plt.figure(figsize=(4,3))
+    plt.plot(thresholds, number_of_participants)
+    plt.xlabel('Hours worn per day')
+    plt.ylabel('Number of participants')
+    return df
