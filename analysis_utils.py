@@ -416,20 +416,66 @@ def perform_classification(df, y_name, b_split_per_participant):
     print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
 def analyze_fitbit_worn_threshold(df, thresholds):
+    #Compute and plot Number of Participant vs. Minutes worn per day (steps > 0)
     number_of_participants = []
+    steps_per_day = []
     for threshold in thresholds:
-        name = 'Worn > ' + str(threshold) + ' hrs'
+        name = 'Worn > ' + str(threshold) + ' minutes'
         df_threshold = df.copy()        
-        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > 60*threshold else 0)
+        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
         df_threshold = df_threshold[df_threshold['Fitbit Step Count'] > 0]       
         df_threshold = df_threshold[df_threshold[name] == 1]
         participants = list(set([x[0] for x in df_threshold['Fitbit Step Count'].index.values]))
         n_participants = len(participants)
         number_of_participants.append(n_participants)
-        print('%s \tnumber of participants = %d' % (name, n_participants))
+        print('%s\t(steps > 0)\tnumber of participants = %d' % (name, n_participants))
         
     plt.figure(figsize=(4,3))
     plt.plot(thresholds, number_of_participants)
-    plt.xlabel('Hours worn per day')
+    plt.xlabel('Minutes worn per day (steps > 0)')
     plt.ylabel('Number of participants')
-    return df
+    plt.title('Fitbit Minutes Worn (steps > 0)')
+
+def get_fitbit_step_per_day_of_week(df, participants, threshold, y_max=None):
+    #Compute and plot Mean Fitbit Step Count per Day of Week (worn threshold is in minutes)
+    group = df.groupby(by='Subject ID')
+    days_name = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    plt.figure(figsize=(5,4))
+    y_average_steps_all = collections.defaultdict(list)
+    for participant_id in participants:
+        df_individual = group.get_group(participant_id)
+        df_individual = df_individual.reset_index()    
+        df_individual['Date'] = pd.to_datetime(df_individual['Date'])
+        df_individual['Day of Week'] = df_individual['Date'].dt.day_name()
+        day_group = df_individual.groupby(by='Day of Week')
+        day_names_individual = [d for d in days_name if d in set(df_individual['Day of Week'].values)]
+        y_average_steps = []
+        x_days = []
+        for day_name in day_names_individual:            
+            df_day = day_group.get_group(day_name).copy()
+            name = 'Worn > ' + str(threshold) + ' minutes'
+            df_day[name] = df_day['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
+            df_day = df_day[df_day['Fitbit Step Count'] > 0]       
+            df_day = df_day[df_day[name] == 1]
+            mean_individual = df_day['Fitbit Step Count'].mean()
+            y_average_steps.append(mean_individual)
+            x_days.append(day_name)
+            y_average_steps_all[day_name].append(mean_individual)
+        label = participant_id if len(participants) < 10 else ''
+        plt.bar(x_days, y_average_steps, label=label, alpha=.5, width=0.5)
+    xs = list(y_average_steps_all.keys())
+    ys = [np.nanmean(y) for y in list(y_average_steps_all.values())]  
+    plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
+    label = 'Mean Step Count (worn > ' + str(threshold) + ' minutes)'
+    plt.ylabel(label)
+    title = 'Mean Fitbit Step Count (worn > ' + str(threshold) + ' minutes)\nper Participant'
+    title += ' (number of participants = ' + str(len(participants)) + ')'
+    plt.title(title)
+    plt.xticks(rotation=45)
+    if y_max == None:
+        y_max = 30000  
+    plt.ylim((0,y_max))
+    plt.legend(loc=2, fontsize=8)
+        
+
+
