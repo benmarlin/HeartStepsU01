@@ -6,6 +6,7 @@ import collections
 import seaborn as sn
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import cm
+import matplotlib.ticker as mticker
 
 import statsmodels.api as sm
 import statsmodels.formula.api as smf
@@ -415,16 +416,23 @@ def perform_classification(df, y_name, b_split_per_participant):
     print('\ntrain accuracy = %s' % accuracy_score(y_train, model.predict(X_train)))
     print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
+def apply_threshold(df, threshold):
+    #Extract data rows with Fitbit Minutes Worn > threshold and Fitbit Step Count > 0
+    #Add new column for Fitbit Minutes Worn > threshold in minutes, for example: 'Worn > 60 minutes'
+    name = 'Worn > ' + str(threshold) + ' minutes'
+    df[name] = df['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
+    df = df[df['Fitbit Step Count'] > 0]       
+    df = df[df[name] == 1]
+    return df
+
 def analyze_fitbit_worn_threshold(df, thresholds):
     #Compute and plot Number of Participant vs. Minutes worn per day (steps > 0)
     number_of_participants = []
     steps_per_day = []
     for threshold in thresholds:
         name = 'Worn > ' + str(threshold) + ' minutes'
-        df_threshold = df.copy()        
-        df_threshold[name] = df_threshold['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
-        df_threshold = df_threshold[df_threshold['Fitbit Step Count'] > 0]       
-        df_threshold = df_threshold[df_threshold[name] == 1]
+        df_threshold = df.copy()
+        df_threshold = apply_threshold(df_threshold, threshold)
         participants = list(set([x[0] for x in df_threshold['Fitbit Step Count'].index.values]))
         n_participants = len(participants)
         number_of_participants.append(n_participants)
@@ -436,12 +444,25 @@ def analyze_fitbit_worn_threshold(df, thresholds):
     plt.ylabel('Number of participants')
     plt.title('Fitbit Minutes Worn (steps > 0)')
 
+def get_xs_and_ys_average(data_dict):
+    #xs = data_dict keys
+    #ys = data_dict values average
+    xs = list(data_dict.keys())
+    ys = []
+    for y_values in list(data_dict.values()):
+        count_nan = len([y for y in y_values if str(y).lower() == 'nan'])
+        if len(y_values) > count_nan:
+            ys.append(np.nanmean(y_values))
+        else:
+            ys.append(0)
+    return xs, ys
+
 def get_fitbit_step_per_day_of_week(df, participants, threshold, y_max=None):
     #Compute and plot Mean Fitbit Step Count per Day of Week (worn threshold is in minutes)
     group = df.groupby(by='Subject ID')
     days_name = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     plt.figure(figsize=(5,4))
-    y_average_steps_all = collections.defaultdict(list)
+    average_steps_all = collections.defaultdict(list)
     for participant_id in participants:
         df_individual = group.get_group(participant_id)
         df_individual = df_individual.reset_index()    
@@ -453,18 +474,14 @@ def get_fitbit_step_per_day_of_week(df, participants, threshold, y_max=None):
         x_days = []
         for day_name in day_names_individual:            
             df_day = day_group.get_group(day_name).copy()
-            name = 'Worn > ' + str(threshold) + ' minutes'
-            df_day[name] = df_day['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
-            df_day = df_day[df_day['Fitbit Step Count'] > 0]       
-            df_day = df_day[df_day[name] == 1]
+            df_day = apply_threshold(df_day, threshold)
             mean_individual = df_day['Fitbit Step Count'].mean()
             y_average_steps.append(mean_individual)
             x_days.append(day_name)
-            y_average_steps_all[day_name].append(mean_individual)
+            average_steps_all[day_name].append(mean_individual)
         label = participant_id if len(participants) < 10 else ''
         plt.bar(x_days, y_average_steps, label=label, alpha=.5, width=0.5)
-    xs = list(y_average_steps_all.keys())
-    ys = [np.nanmean(y) for y in list(y_average_steps_all.values())]  
+    xs, ys = get_xs_and_ys_average(average_steps_all)   
     plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
     label = 'Mean Step Count (worn > ' + str(threshold) + ' minutes)'
     plt.ylabel(label)
@@ -477,5 +494,45 @@ def get_fitbit_step_per_day_of_week(df, participants, threshold, y_max=None):
     plt.ylim((0,y_max))
     plt.legend(loc=2, fontsize=8)
         
-
+def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_lim=None):
+    #Compute and plot Mean Fitbit Step Count per Mood (worn threshold is in minutes)
+    threshold = min(threshold, 24*60)
+    group = df.groupby(by='Subject ID')
+    plt.figure(figsize=(5,4))
+    average_steps_all = collections.defaultdict(list)
+    data_plot = collections.defaultdict(list)
+    for participant_id in participants:
+        df_individual = group.get_group(participant_id)
+        df_individual = df_individual.reset_index()        
+        df_individual = apply_threshold(df_individual, threshold)
+        xs = []
+        ys = []
+        for i, x in enumerate(df_individual[mood]):
+            if str(x).lower() == 'nan':
+                x = 0
+            else:
+                x = round(x)
+            xs.append(x)
+            y = df_individual['Fitbit Step Count'].values[i]
+            ys.append(y)
+            average_steps_all[x].append(y)            
+        label = participant_id if len(participants) < 10 else ''
+        plt.bar(xs, ys, label=label, alpha=.5, width=0.5)
+    average_steps_all = collections.OrderedDict(sorted(average_steps_all.items()))
+    xs, ys = get_xs_and_ys_average(average_steps_all)   
+    plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
+    label = 'Mean Step Count (worn > ' + str(threshold) + ' minutes)'
+    plt.ylabel(label)
+    plt.xlabel(mood)
+    title = 'Mean Fitbit Step Count (worn > ' + str(threshold) + ' minutes)\nper Participant'
+    title += ' (number of participants = ' + str(len(participants)) + ')'
+    plt.title(title)
+    if y_max == None:
+        y_max = 30000
+    if x_lim == None:
+        x_lim = (0,6) 
+    plt.ylim((0,y_max))
+    plt.xlim(x_lim[0]-0.5, x_lim[1]+0.5)
+    plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
+    plt.legend(loc=2, fontsize=8)
 
