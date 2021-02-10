@@ -274,12 +274,8 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         fixed_effect = update_name(fixed_effect)
         equation += " + C(" + fixed_effect + ")"
         figsize = (10,14)
-    
-    if family == 'Binomial':
-        x_array = [update_name(x) for x in x_array]        
-        model = sm.GEE(endog=df[y_name], exog=df[x_array], groups=df[groups], family=fam, cov_struct=cov)
-    else:
-        model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)
+
+    model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)    
 
     results = model.fit()    
     (QIC, QICu) = results.qic(results.scale)
