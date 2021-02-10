@@ -58,7 +58,7 @@ def get_df_from_zip(file_type,zip_file, participants):
             f = z.open(file_name)
             file_size = z.getinfo(file_name).file_size
             if file_size > 0:
-                df  = pd.read_csv(f)
+                df  = pd.read_csv(f, low_memory=False)
                 df["Subject ID"] = sid
                 dfs.append(df)
             else:
@@ -169,7 +169,7 @@ def load_data(data_catalog, data_product, b_crop=True, b_display=True):
     df = df.set_index(index)
     df = fix_df_column_types(df,data_dictionary)    
     df = df.sort_index(level=0)
-    if b_crop:        
+    if (b_crop) and (data_product != 'Fitbit Data Per Minute'):        
         df = crop_data(participant_df, df, b_display, b_crop_end=True)
     df.name = data_dictionary.name        
     return(df)
