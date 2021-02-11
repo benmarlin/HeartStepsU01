@@ -5,8 +5,8 @@ import sys, getopt
 def main(argv):
 
     #For example, run the following command:
-    #baseline_utils.py -d HeartSteps_DataDictionary_2021-01-22.csv -f HeartSteps-BaselineSurveyData_DATA_2021-01-27_1340.csv
-
+    #python baseline_utils.py -d HeartSteps-BaselineSurvey_DataDictionary_2021-01-22.csv -f HeartSteps-BaselineSurvey_DATA_2021-01-27_1340.csv
+    
     try:
         opts, args = getopt.getopt(argv,"d:f:",["data_dictionary=","data="])
     except getopt.GetoptError:
