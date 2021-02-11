@@ -274,12 +274,8 @@ def perform_gee(df, y_name, x_array, groups_name, fixed_effect='',
         fixed_effect = update_name(fixed_effect)
         equation += " + C(" + fixed_effect + ")"
         figsize = (10,14)
-    
-    if family == 'Binomial':
-        x_array = [update_name(x) for x in x_array]        
-        model = sm.GEE(endog=df[y_name], exog=df[x_array], groups=df[groups], family=fam, cov_struct=cov)
-    else:
-        model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)
+
+    model = smf.gee(equation, data=df, groups=groups, family=fam, cov_struct=cov)    
 
     results = model.fit()    
     (QIC, QICu) = results.qic(results.scale)
@@ -417,11 +413,10 @@ def perform_classification(df, y_name, b_split_per_participant):
     print('test  accuracy = %s\n' % accuracy_score(y_test,  model.predict(X_test)))
 
 def apply_threshold(df, threshold):
-    #Extract data rows with Fitbit Minutes Worn > threshold and Fitbit Step Count > 0
+    #Extract data rows with Fitbit Minutes Worn > threshold
     #Add new column for Fitbit Minutes Worn > threshold in minutes, for example: 'Worn > 60 minutes'
     name = 'Worn > ' + str(threshold) + ' minutes'
-    df[name] = df['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)
-    df = df[df['Fitbit Step Count'] > 0]       
+    df[name] = df['Fitbit Minutes Worn'].apply(lambda x: 1 if x > threshold else 0)    
     df = df[df[name] == 1]
     return df
 
@@ -433,29 +428,36 @@ def analyze_fitbit_worn_threshold(df, thresholds):
         name = 'Worn > ' + str(threshold) + ' minutes'
         df_threshold = df.copy()
         df_threshold = apply_threshold(df_threshold, threshold)
+        df_threshold = df_threshold[df_threshold['Fitbit Step Count'] == 0]
         participants = list(set([x[0] for x in df_threshold['Fitbit Step Count'].index.values]))
         n_participants = len(participants)
         number_of_participants.append(n_participants)
-        print('%s\t(steps > 0)\tnumber of participants = %d' % (name, n_participants))
+        print('%s\t(steps = 0)\tnumber of participants = %d' % (name, n_participants))
         
     plt.figure(figsize=(4,3))
     plt.plot(thresholds, number_of_participants)
-    plt.xlabel('Minutes worn per day (steps > 0)')
+    plt.xlabel('Minutes worn per day (steps = 0)')
     plt.ylabel('Number of participants')
-    plt.title('Fitbit Minutes Worn (steps > 0)')
+    plt.title('Fitbit Minutes Worn (steps = 0)')
 
-def get_xs_and_ys_average(data_dict):
+def get_xs_and_ys_average(data_dict):    
     #xs = data_dict keys
-    #ys = data_dict values average
-    xs = list(data_dict.keys())
-    ys = []
-    for y_values in list(data_dict.values()):
-        count_nan = len([y for y in y_values if str(y).lower() == 'nan'])
-        if len(y_values) > count_nan:
-            ys.append(np.nanmean(y_values))
-        else:
-            ys.append(0)
-    return xs, ys
+    #ys_mean = data_dict values average
+    #ys_ci_upper = data_dict values upper 95% confidence interval
+    #ys_ci_lower = data_dict values lower 95% confidence interval
+    xs = []
+    ys_mean = []
+    ys_ci_upper = []
+    ys_ci_lower = []
+    for key, y_values in data_dict.items():              
+        y_data = [y for y in y_values if str(y).lower() != 'nan']
+        if len(y_data) > 0:
+            xs.append(key)
+            mean_data = np.mean(y_data)
+            ys_mean.append(mean_data)
+            ys_ci_upper.append(mean_data + 1.96 * np.std(y_data) / np.sqrt(len(y_data)))
+            ys_ci_lower.append(mean_data - 1.96 * np.std(y_data) / np.sqrt(len(y_data)))
+    return xs, ys_mean, ys_ci_upper, ys_ci_lower
 
 def get_fitbit_step_per_day_of_week(df, participants, threshold, y_max=None):
     #Compute and plot Mean Fitbit Step Count per Day of Week (worn threshold is in minutes)
@@ -470,19 +472,14 @@ def get_fitbit_step_per_day_of_week(df, participants, threshold, y_max=None):
         df_individual['Day of Week'] = df_individual['Date'].dt.day_name()
         day_group = df_individual.groupby(by='Day of Week')
         day_names_individual = [d for d in days_name if d in set(df_individual['Day of Week'].values)]
-        y_average_steps = []
-        x_days = []
         for day_name in day_names_individual:            
             df_day = day_group.get_group(day_name).copy()
             df_day = apply_threshold(df_day, threshold)
             mean_individual = df_day['Fitbit Step Count'].mean()
-            y_average_steps.append(mean_individual)
-            x_days.append(day_name)
             average_steps_all[day_name].append(mean_individual)
-        label = participant_id if len(participants) < 10 else ''
-        plt.bar(x_days, y_average_steps, label=label, alpha=.5, width=0.5)
-    xs, ys = get_xs_and_ys_average(average_steps_all)   
-    plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
+    xs, ys_mean, ys_ci_upper, ys_ci_lower = get_xs_and_ys_average(average_steps_all)   
+    plt.plot(xs, ys_mean, lw=2, label='mean', color='blue')
+    plt.fill_between(xs, ys_ci_lower, ys_ci_upper, color='b', alpha=.1, label='95% ci')
     label = 'Mean Step Count (worn > ' + str(threshold) + ' minutes)'
     plt.ylabel(label)
     title = 'Mean Fitbit Step Count (worn > ' + str(threshold) + ' minutes)\nper Participant'
@@ -505,22 +502,17 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
         df_individual = group.get_group(participant_id)
         df_individual = df_individual.reset_index()        
         df_individual = apply_threshold(df_individual, threshold)
-        xs = []
-        ys = []
         for i, x in enumerate(df_individual[mood]):
             if str(x).lower() == 'nan':
                 x = 0
             else:
                 x = round(x)
-            xs.append(x)
             y = df_individual['Fitbit Step Count'].values[i]
-            ys.append(y)
             average_steps_all[x].append(y)            
-        label = participant_id if len(participants) < 10 else ''
-        plt.bar(xs, ys, label=label, alpha=.5, width=0.5)
     average_steps_all = collections.OrderedDict(sorted(average_steps_all.items()))
-    xs, ys = get_xs_and_ys_average(average_steps_all)   
-    plt.plot(xs, ys, ls=':', lw=2, label='mean', color='black')
+    xs, ys_mean, ys_ci_upper, ys_ci_lower = get_xs_and_ys_average(average_steps_all)
+    plt.plot(xs, ys_mean, lw=2, label='mean', color='blue')
+    plt.fill_between(xs, ys_ci_lower, ys_ci_upper, color='b', alpha=.1, label='95% ci')
     label = 'Mean Step Count (worn > ' + str(threshold) + ' minutes)'
     plt.ylabel(label)
     plt.xlabel(mood)
@@ -530,9 +522,9 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     if y_max == None:
         y_max = 30000
     if x_lim == None:
-        x_lim = (0,6) 
+        x_lim = (-1,6) 
     plt.ylim((0,y_max))
-    plt.xlim(x_lim[0]-0.5, x_lim[1]+0.5)
+    plt.xlim(x_lim[0], x_lim[1])
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     plt.legend(loc=2, fontsize=8)
 
