@@ -503,12 +503,10 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
         df_individual = df_individual.reset_index()        
         df_individual = apply_threshold(df_individual, threshold)
         for i, x in enumerate(df_individual[mood]):
-            if str(x).lower() == 'nan':
-                x = 0
-            else:
+            if str(x).lower() != 'nan':
                 x = round(x)
-            y = df_individual['Fitbit Step Count'].values[i]
-            average_steps_all[x].append(y)            
+                y = df_individual['Fitbit Step Count'].values[i]
+                average_steps_all[x].append(y)            
     average_steps_all = collections.OrderedDict(sorted(average_steps_all.items()))
     xs, ys_mean, ys_ci_upper, ys_ci_lower = get_xs_and_ys_average(average_steps_all)
     plt.plot(xs, ys_mean, lw=2, label='mean', color='blue')
@@ -522,7 +520,7 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     if y_max == None:
         y_max = 30000
     if x_lim == None:
-        x_lim = (-1,6) 
+        x_lim = (1,5) 
     plt.ylim((0,y_max))
     plt.xlim(x_lim[0], x_lim[1])
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
