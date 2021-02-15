@@ -11,9 +11,9 @@ import seaborn as sns
 def set_name(name):
     return str(name).lower().replace(' ', '_')
     
-def load_model(model_name, model_code, b_load_existing):    
+def load_model(data_dir, model_name, model_code, b_load_existing):    
     pickle_name = model_name + '.pkl'
-    pickle_name = os.path.join('models', pickle_name)                     
+    pickle_name = os.path.join(data_dir, 'models/', pickle_name)                     
     b_exist = path.exists(pickle_name)
     if not b_exist:
         print(pickle_name + ' file does not exist')
@@ -69,6 +69,7 @@ def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_sho
     plt.legend(loc=4)
     if b_show:
         plt.show()
+    plt.close('all')
 
 def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     #Plot trace
@@ -101,6 +102,7 @@ def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     plt.legend(loc=4)
     if b_show:
         plt.show()
+    plt.close('all')
 
 def plot_time_series(title, df, y_name, time_name, b_show):
     plt.figure(figsize=(7,1.5))
@@ -113,8 +115,9 @@ def plot_time_series(title, df, y_name, time_name, b_show):
     plt.gcf().tight_layout()
     if b_show:
         plt.show()
+    plt.close('all')
     
-def fit_simple_regression_model(df_data, y_name, x_names, b_load_existing=False, b_show=True):    
+def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=False, b_show=True):    
 
     model_type = 'regression'
     model_code = """
@@ -136,7 +139,7 @@ def fit_simple_regression_model(df_data, y_name, x_names, b_load_existing=False,
     for x_name in x_names:
         #Compile or load model
         model_name = model_type + '_' + set_name(y_name) + '_' + set_name(x_name)
-        stan_model = load_model(model_name, model_code, b_load_existing)
+        stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
         #Fit model
         N = 1000
@@ -156,7 +159,7 @@ def fit_simple_regression_model(df_data, y_name, x_names, b_load_existing=False,
         plot_trace_and_posteriors(title, fit, 'sigma', b_show)
         print('\n')
 
-def fit_autoregressive_model(df_data, participants, y_name, time_name, degree_p=1, b_load_existing=True, b_show=True):
+def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name, degree_p=1, b_load_existing=True, b_show=True):
     
     model_type = 'autoregressive'
     model_code = """
@@ -188,7 +191,7 @@ def fit_autoregressive_model(df_data, participants, y_name, time_name, degree_p=
 
             #Compile or load model
             model_name = model_type + str(degree_p) + '_' + participant_name + '_' + set_name(y_name)
-            stan_model = load_model(model_name, model_code, b_load_existing)
+            stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
             #Fit model
             data_y = df_individual[y_name].values
@@ -211,15 +214,14 @@ def fit_autoregressive_model(df_data, participants, y_name, time_name, degree_p=
             print('cannot find participant ', participant_name)
 
 def main():
-    test_df = pd.read_csv('test_df.csv')   #Replace test_df.csv with desired filename
+    data_dir = "../../U01Data/"            #Replace with desired data_dir
+    test_df = pd.read_csv('test_df.csv')   #Replace with desired test_df
     y_name = 'Fitbit Step Count'
     x_names = ['Committed', 'Busy', 'Rested']
-    fit_simple_regression_model(test_df, y_name, x_names, b_load_existing=True, b_show=False)
-    plt.close('all')
+    fit_simple_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=True, b_show=False)
     participants = ['102', '105']
-    fit_autoregressive_model(test_df, participants, y_name=y_name, time_name='Date',
+    fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
                              degree_p=2, b_load_existing=True, b_show=False)
-    plt.close('all')
     print('finished!')
     
 if __name__ == '__main__':    
