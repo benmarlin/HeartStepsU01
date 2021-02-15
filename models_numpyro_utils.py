@@ -40,7 +40,7 @@ def plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b
     plt.gcf().tight_layout()
     plt.legend(loc=4)
     if b_show:
-        plt.show()    
+        plt.show()
     plt.close('all')
 
 def model(x1=None, x2=None, x3=None, y_obs=None):
@@ -60,7 +60,9 @@ def model(x1=None, x2=None, x3=None, y_obs=None):
     numpyro.sample('obs', dist.Normal(mu, jnp.exp(log_sigma)), obs=y_obs)
 
 def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
-    for x_name in x_names:    
+    for x_name in x_names:
+        title = y_name + ' vs ' + str(x_names)
+        print('fitting for %s...' % title)        
         N = 1000
         data_x    = df_data[x_name].values[:N]
         data_y = df_data[y_name].values[:N]
@@ -73,7 +75,6 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
         mcmc.run(rng_key_, x1=data_x, y_obs=data_y)
 
         #Display summary
-        title = y_name + ' vs ' + str(x_names)
         print('summary for %s =' % title)
         mcmc.print_summary()
         samples = mcmc.get_samples()
@@ -84,7 +85,7 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
 
         #Plot
         plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b_show)
-        print('\n')
+        print('\n\n\n')
 
 if __name__ == '__main__':
     test_df = pd.read_csv('test_df.csv')    #Replace with desired test_df
