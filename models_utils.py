@@ -159,6 +159,52 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_exist
         plot_trace_and_posteriors(title, fit, 'sigma', b_show)
         print('\n')
 
+def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=False, b_show=True):    
+
+    model_type = 'regression'
+    model_code = """
+    data {
+        int<lower=0> N;
+        int<lower=0> K;
+        matrix[N,K] X;
+        vector[N] y;
+    }
+    parameters {
+        real alpha;
+        vector[K] beta;
+        real<lower=0> sigma;
+    }
+    model {
+        y ~ normal(X * beta + alpha, sigma);
+    }
+    """
+
+    #Compile or load model
+    model_name = model_type + '_' + set_name(y_name)
+    for x_name in x_names:
+        model_name += '_' + set_name(x_name)
+    stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
+
+    #Fit model
+    N = 1000
+    data_X = df_data[x_names].values[:N]
+    data_y = df_data[y_name].values[:N]
+
+    data = {'N': data_X.shape[0], 'K': data_X.shape[1], 'X': data_X, 'y': data_y}        
+    fit = stan_model.sampling(data=data, iter=1000, chains=4, warmup=500, thin=1, seed=0)
+
+    #Display summary
+    title = y_name + ' vs ' + str(x_names)
+    print('summary for %s =\n%s\n' % (title, get_df_summary(fit)))        
+
+    #Plot
+    plot_trace_and_posteriors(title, fit, 'alpha', b_show)
+    for k in range(1, data_X.shape[1]+1):
+        beta_name = 'beta[' + str(k) + ']'
+        plot_trace_and_posteriors(title, fit, beta_name, b_show)
+    plot_trace_and_posteriors(title, fit, 'sigma', b_show)
+    print('\n')
+
 def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name, degree_p=1, b_load_existing=True, b_show=True):
     
     model_type = 'autoregressive'
@@ -219,6 +265,7 @@ def main():
     y_name = 'Fitbit Step Count'
     x_names = ['Committed', 'Busy', 'Rested']
     fit_simple_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=True, b_show=False)
+    fit_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=True, b_show=False)
     participants = ['102', '105']
     fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
                              degree_p=2, b_load_existing=True, b_show=False)
