@@ -12,7 +12,8 @@ from jax import random
 import numpyro
 import numpyro.distributions as dist
 import numpyro.distributions.constraints as constraints
-from numpyro.infer import MCMC, NUTS
+from numpyro.infer import MCMC, NUTS, Predictive
+
 
 def plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b_show=True): 
     #Plot data
@@ -40,7 +41,46 @@ def plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b
     plt.gcf().tight_layout()
     plt.legend(loc=4)
     if b_show:
-        plt.show()    
+        plt.show()
+    plt.close('all')
+
+def plot_posterior_predictive(model, posterior_samples, x_name, y_name, data_x, data_y,
+                              test_data_x, test_data_y, y_mean_lim=None, b_show=True):
+    rng_key_ = random.PRNGKey(0)        
+    predictive = Predictive(model, posterior_samples)
+    predictions_training = predictive(rng_key_, xs=data_x)['obs']
+    mean_predictions_training = jnp.mean(predictions_training, axis=0)
+
+    rng_key_ = random.PRNGKey(0)
+    predictive = Predictive(model, posterior_samples)
+    predictions_new = predictive(rng_key_, xs=test_data_x)['obs']
+    mean_predictions_new = jnp.mean(predictions_new, axis=0)
+
+    plt.figure(figsize=(14,4))
+    plt.subplot(121)
+    plt.plot(mean_predictions_training, label='predicted training mean', color='blue')
+    plt.plot(mean_predictions_new, ls='--', label='predicted test mean', color='magenta')
+    plt.title(y_name + ' predicted mean')
+    plt.ylabel(y_name)
+    plt.xlabel('sample')
+    if y_mean_lim == None:
+        y_mean_lim = (4000, 6500)
+    plt.ylim(y_mean_lim)
+    plt.tight_layout()
+    plt.legend(loc=2, fontsize=10)
+
+    plt.subplot(122)
+    plt.scatter(data_x, data_y, s=10, alpha=.5, marker='o', color='#1f77b4', label='training data')
+    plt.scatter(test_data_x, test_data_y, s=10, alpha=.5, marker='o', color='#ff7f0e', label='test data')
+    plt.plot(data_x, mean_predictions_training, color='blue', label='predicted training mean')
+    plt.plot(test_data_x, mean_predictions_new, ls='--', color='magenta', label='predicted test mean')
+    plt.title(y_name + ' predicted mean vs ' + x_name)
+    plt.ylabel(y_name)
+    plt.xlabel(x_name)
+    plt.tight_layout()
+    plt.legend(loc=2, fontsize=10)
+    if b_show:
+        plt.show()        
     plt.close('all')
 
 def model(xs=None, y_obs=None):
@@ -54,14 +94,56 @@ def model(xs=None, y_obs=None):
     log_sigma = numpyro.sample('log_sigma', dist.Normal(0., 10.))    
     numpyro.sample('obs', dist.Normal(mu, jnp.exp(log_sigma)), obs=y_obs)
 
-def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
+def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display=True):
+    df = df.dropna()
+    df = df.replace({True: 1, False: 0})
+    
+    if b_split_per_participant:   
+        X = df.drop(columns=y_name)
+        y = df[y_name]        
+        X_train = X.groupby('Subject ID').apply(lambda x: x.head(round(split_percent * len(x))))
+        y_train = y.groupby('Subject ID').apply(lambda x: x.head(round(split_percent * len(x))))
+        X_test  = X.groupby('Subject ID').apply(lambda x: x.tail(len(x) - round(split_percent * len(x))))
+        y_test  = y.groupby('Subject ID').apply(lambda x: x.tail(len(x) - round(split_percent * len(x))))
+        X_train = X_train.values
+        y_train = y_train.values
+    else:
+        df = df.reset_index()
+        df = df.drop(columns=['Subject ID', 'Date'])
+        X = df.drop(columns=y_name).values
+        y = df[y_name].values
+        split = int(len(X) * split_percent)
+        X_train = X[:split]
+        y_train = y[:split]
+        X_test  = X[split:]
+        y_test  = y[split:]
+
+    if b_display:
+        print('Classification for ' + y_name)
+        print('\ntrain split   = {}%'.format(int(split_percent*100)))
+        print('X_train.shape =', X_train.shape)
+        print('y_train.shape =', y_train.shape)
+        print('X_test.shape  =', X_test.shape)
+        print('y_test.shape  =', y_test.shape)
+        
+    return (X_train, y_train, X_test, y_test)
+
+def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y_mean_lim=None):
+    N_training = 1000
+    N_test = 200
     for x_name in x_names:
         title = y_name + ' vs ' + x_name
         print('fitting for %s...' % title)        
-        N = 1000
-        data_x = jnp.array([df_data[x_name].values[:N]]).reshape(-1,1)
-        data_y = df_data[y_name].values[:N]
 
+        #Split the data and targets into training/testing sets, per participant
+        df_to_split = df_data[[y_name, x_name]]
+        split_data_tuple = split_data(df_to_split, y_name, b_split_per_participant=True, b_display=False)
+        (X_train, y_train, X_test, y_test) = split_data_tuple
+        data_x = jnp.array(X_train[:N_training])
+        data_y = jnp.array(y_train[:N_training])
+        test_data_x = jnp.array(X_test[:N_test])
+        test_data_y = jnp.array(y_test[:N_test])
+        
         #Fit model using NUTS
         rng_key = random.PRNGKey(0)
         kernel = NUTS(model)
@@ -71,22 +153,31 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
         #Display summary
         print('summary for %s =' % title)
         mcmc.print_summary()
-        samples = mcmc.get_samples()
+        samples = mcmc.get_samples()                
         samples['sigma'] = jnp.exp(samples['log_sigma'])    
         ss = samples['sigma']
         print('sigma mean = %.2f\tstd = %.2f\tmedian = %.2f\tQ5%% = %.2f\tQ95%% = %.2f' % (
-              np.mean(ss), np.std(ss), np.median(ss), np.quantile(ss, 0.05, axis=0), np.quantile(ss, 0.95, axis=0)))
-        
+              np.mean(ss), np.std(ss), np.median(ss), np.quantile(ss, 0.05, axis=0), np.quantile(ss, 0.95, axis=0)))     
+
         #Plot
         plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b_show)
+        plot_posterior_predictive(model, samples, x_name, y_name, data_x, data_y, test_data_x, test_data_y, y_mean_lim, b_show)     
         print('\n\n\n')
-
-def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):    
+    
+def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):        
+    N_training = 1000
+    N_test = 200
     title = y_name + ' vs ' + str(x_names)
-    print('fitting for %s...' % title)        
-    N = 1000
-    data_xs = df_data[x_names].values[:N]
-    data_y = df_data[y_name].values[:N]
+    print('fitting for %s...' % title)
+
+    #Split the data and targets into training/testing sets, per participant
+    df_to_split = df_data[[y_name] + x_names]
+    split_data_tuple = split_data(df_to_split, y_name, b_split_per_participant=True, b_display=False)
+    (X_train, y_train, X_test, y_test) = split_data_tuple
+    data_xs = jnp.array(X_train[:N_training])
+    data_y  = jnp.array(y_train[:N_training])
+    test_data_xs = jnp.array(X_test[:N_test])
+    test_data_y  = jnp.array(y_test[:N_test])        
 
     #Fit model using NUTS
     rng_key = random.PRNGKey(0)
@@ -98,7 +189,7 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
     print('summary for %s =' % title)
     mcmc.print_summary()
     samples = mcmc.get_samples()
-    samples['sigma'] = jnp.exp(samples['log_sigma'])    
+    samples['sigma'] = jnp.exp(samples['log_sigma']) 
     ss = samples['sigma']
     print('sigma mean = %.2f\tstd = %.2f\tmedian = %.2f\tQ5%% = %.2f\tQ95%% = %.2f' % (
           np.mean(ss), np.std(ss), np.median(ss), np.quantile(ss, 0.05, axis=0), np.quantile(ss, 0.95, axis=0)))
@@ -106,6 +197,7 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
 
 if __name__ == '__main__':
     test_df = pd.read_csv('test_df.csv')    #Replace with desired test_df
+    test_df = test_df.set_index(['Subject ID', 'Date'])
     x_names = ['Committed', 'Busy', 'Rested']
     y_name = 'Fitbit Step Count'
     fit_simple_regression_model_numpyro(test_df , y_name, x_names, b_show=False)
