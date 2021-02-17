@@ -129,8 +129,6 @@ def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display
     return (X_train, y_train, X_test, y_test)
 
 def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y_mean_lim=None):
-    N_training = 1000
-    N_test = 200
     for x_name in x_names:
         title = y_name + ' vs ' + x_name
         print('fitting for %s...' % title)        
@@ -139,10 +137,10 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y
         df_to_split = df_data[[y_name, x_name]]
         split_data_tuple = split_data(df_to_split, y_name, b_split_per_participant=True, b_display=False)
         (X_train, y_train, X_test, y_test) = split_data_tuple
-        data_x = jnp.array(X_train[:N_training])
-        data_y = jnp.array(y_train[:N_training])
-        test_data_x = jnp.array(X_test[:N_test])
-        test_data_y = jnp.array(y_test[:N_test])
+        data_x = jnp.array(X_train)
+        data_y = jnp.array(y_train)
+        test_data_x = jnp.array(X_test)
+        test_data_y = jnp.array(y_test)     
         
         #Fit model using NUTS
         rng_key = random.PRNGKey(0)
@@ -151,7 +149,7 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y
         mcmc.run(rng_key, xs=data_x, y_obs=data_y)
 
         #Display summary
-        print('summary for %s =' % title)
+        print('\nsummary for %s =' % title)
         mcmc.print_summary()
         samples = mcmc.get_samples()                
         samples['sigma'] = jnp.exp(samples['log_sigma'])    
@@ -165,8 +163,6 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y
         print('\n\n\n')
     
 def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):        
-    N_training = 1000
-    N_test = 200
     title = y_name + ' vs ' + str(x_names)
     print('fitting for %s...' % title)
 
@@ -174,11 +170,11 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
     df_to_split = df_data[[y_name] + x_names]
     split_data_tuple = split_data(df_to_split, y_name, b_split_per_participant=True, b_display=False)
     (X_train, y_train, X_test, y_test) = split_data_tuple
-    data_xs = jnp.array(X_train[:N_training])
-    data_y  = jnp.array(y_train[:N_training])
-    test_data_xs = jnp.array(X_test[:N_test])
-    test_data_y  = jnp.array(y_test[:N_test])        
-
+    data_xs = jnp.array(X_train)
+    data_y  = jnp.array(y_train)
+    test_data_xs = jnp.array(X_test)
+    test_data_y  = jnp.array(y_test)      
+        
     #Fit model using NUTS
     rng_key = random.PRNGKey(0)
     kernel = NUTS(model)
@@ -186,7 +182,7 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
     mcmc.run(rng_key, xs=data_xs, y_obs=data_y)
 
     #Display summary
-    print('summary for %s =' % title)
+    print('\nsummary for %s =' % title)
     mcmc.print_summary()
     samples = mcmc.get_samples()
     samples['sigma'] = jnp.exp(samples['log_sigma']) 
