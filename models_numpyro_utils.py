@@ -41,7 +41,7 @@ def plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b
     plt.gcf().tight_layout()
     plt.legend(loc=4)
     if b_show:
-        plt.show()
+        plt.show()    
     plt.close('all')
 
 def plot_posterior_predictive(model, posterior_samples, x_name, y_name, data_x, data_y,
@@ -80,7 +80,7 @@ def plot_posterior_predictive(model, posterior_samples, x_name, y_name, data_x, 
     plt.tight_layout()
     plt.legend(loc=2, fontsize=10)
     if b_show:
-        plt.show()        
+        plt.show() 
     plt.close('all')
 
 def model(xs=None, y_obs=None):
@@ -129,6 +129,7 @@ def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display
     return (X_train, y_train, X_test, y_test)
 
 def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y_mean_lim=None):
+    mcmcs = []
     for x_name in x_names:
         title = y_name + ' vs ' + x_name
         print('fitting for %s...' % title)        
@@ -159,8 +160,10 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y
 
         #Plot
         plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b_show)
-        plot_posterior_predictive(model, samples, x_name, y_name, data_x, data_y, test_data_x, test_data_y, y_mean_lim, b_show)     
+        plot_posterior_predictive(model, samples, x_name, y_name, data_x, data_y, test_data_x, test_data_y, y_mean_lim, b_show)
+        mcmcs.append(mcmc)
         print('\n\n\n')
+    return mcmcs   
     
 def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):        
     title = y_name + ' vs ' + str(x_names)
@@ -190,13 +193,14 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
     print('sigma mean = %.2f\tstd = %.2f\tmedian = %.2f\tQ5%% = %.2f\tQ95%% = %.2f' % (
           np.mean(ss), np.std(ss), np.median(ss), np.quantile(ss, 0.05, axis=0), np.quantile(ss, 0.95, axis=0)))
     print('\n\n\n')
+    return mcmc
 
 if __name__ == '__main__':
     test_df = pd.read_csv('test_df.csv')    #Replace with desired test_df
     test_df = test_df.set_index(['Subject ID', 'Date'])
     x_names = ['Committed', 'Busy', 'Rested']
     y_name = 'Fitbit Step Count'
-    fit_simple_regression_model_numpyro(test_df , y_name, x_names, b_show=False)
-    fit_regression_model_numpyro(test_df , y_name, x_names, b_show=True)
+    mcmcs = fit_simple_regression_model_numpyro(test_df , y_name, x_names, b_show=False)
+    mcmc  = fit_regression_model_numpyro(test_df , y_name, x_names, b_show=True)
     print('finished!')
 
