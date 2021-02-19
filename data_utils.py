@@ -253,3 +253,26 @@ def get_categories(dd, field):
     categories = dd.loc[field]['Notes'].split(' | ')
     return categories
 
+def resample_fitbit_per_minute(participant='105', df=None, filename=None, interval='30Min'):
+    #1. Set df to desired input df, or set filename to load df (df=None)
+    #2. Set participant ID, for example: '105'
+    #3. Set interval for resampling, for example: '30Min'
+    if filename != None:
+        print('loading data for participant %s from %s' % (participant, filename))
+        df = pd.read_csv(filename, low_memory=False)
+    else:
+        print('getting data for participant', participant)
+        df = df.reset_index()
+    df = df.groupby(by='Subject ID').get_group(participant)
+    #Temporary fix for data export issue: replace S with 00 in time format
+    df['time'] = df['time'].map(lambda x: str(x).replace('S', '00'))
+    df['datetime'] = df['date'].astype(str) + ' ' + df['time'].astype(str)
+    df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%d %H:%M:%S')
+    df = df.set_index('datetime')
+    df = df.resample(interval, level=0).first()
+    df = df.reset_index().set_index(['Subject ID', 'time'])
+    df.sort_index(level=0)
+    df.name = 'Fitbit Data Per Minute'
+    return df
+
+
