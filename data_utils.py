@@ -52,7 +52,7 @@ def get_df_from_zip(file_type,zip_file, participants):
     
     #Open file inside zip
     dfs=[]
-    for file_name in file_list:  
+    for file_name in file_list:
         sid = get_user_id_from_filename(file_name)
         if(sid in participant_list):
             f = z.open(file_name)
@@ -80,13 +80,13 @@ def fix_df_column_types(df, dd):
                     parsed = urlparse(url)
                     df[field].values[index] = parsed.path[1:]
             else:
-                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))
+                df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else str(x))   
         elif dd_type in ["Ordinal"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else int(x))
         elif dd_type in ["Time"]:
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else pd.to_timedelta(x))
         elif dd_type in ["Date"]:
-            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else datetime.strptime(x, "%Y-%m-%d"))
+            df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else datetime.strptime(x, "%Y-%m-%d"))   
         elif dd_type in ["DateTime"]:
             #Keep only time for now
             max_length = max([len(str(x).split(':')[-1]) for x in df[field].values]) # length of last item after ':'
@@ -161,17 +161,63 @@ def crop_data(participants_df, df, b_display, b_crop_end=True):
         df = df.sort_index(level=0)
     return df
 
+def crop_end_fitbit_per_minute(data_product, participants_df, df, b_display):
+    #For Fitbit Data Per Minute, we only crop after the end date (for withdrew status)
+    #Fitbit Data Per Minute has 'Subject ID', 'time' as indices and 'date' as column
+    participants_df = participants_df.set_index("Participant ID")
+    fields = list(df.keys())
+    initial_indices = df.index.names
+    #Create an observation indicator for an observed value in any
+    #of the above fields. Sort to make sure data frame is in date order
+    #per participant
+    obs_df = 0+((0+~df[fields].isnull()).sum(axis=1)>0)
+    obs_df.sort_index(axis=0, inplace=True,level=1)
+    #Get the participant ids according to the data frame
+    participants = list(obs_df.index.levels[0])
+    frames = []
+    for p in participants:
+        #Check if there is any data for the participant
+        if(len(obs_df[p]))>0:
+            new_df = df.loc[p].copy()
+            date_name = ''
+            if 'Date' in new_df:
+                date_name = 'Date'
+            elif 'date' in new_df:
+                date_name = 'date'
+            if date_name != '':        
+                status = participants_df.loc[p]["Participant Status"]
+                if status == 'withdrew':
+                    new_df[date_name] = pd.to_datetime(new_df[date_name])
+                    end_date = pd.to_datetime(participants_df.loc[p]['End Date'])
+                    new_df = new_df.loc[new_df[date_name] <= end_date]
+                    new_df[date_name] = new_df[date_name].dt.strftime('%Y-%m-%d')
+                    if (b_display):
+                        print('%s: cropped after %s for withdrew participant %s' % (
+                               data_product, end_date.strftime('%Y-%m-%d'), str(p)))
+            new_df['Subject ID'] = p
+            new_df = new_df.reset_index()
+            new_df = new_df.set_index(initial_indices)            
+            frames.append(new_df)
+    if len(frames) > 0:
+        df = pd.concat(frames)
+        df = df.sort_index(level=0)
+        if (b_display):
+            print('\nchecking data types...\n')
+    return df
+
 def load_data(data_catalog, data_product, b_crop=True, b_display=True):
     participant_df  = get_participants_by_type(data_catalog,"full")
-    data_dictionary = get_data_dictionary(data_catalog, data_product)
+    data_dictionary = get_data_dictionary(data_catalog, data_product)    
     df = get_df_from_zip(data_dictionary.data_file_name, data_catalog.data_file, participant_df)
     index = [x.strip() for x in data_dictionary.index_fields.split(";")]
     df = df.set_index(index)
-    df = fix_df_column_types(df,data_dictionary)    
-    df = df.sort_index(level=0)
+    df = df.sort_index(level=0)    
     if (b_crop) and (data_product != 'Fitbit Data Per Minute'):        
         df = crop_data(participant_df, df, b_display, b_crop_end=True)
-    df.name = data_dictionary.name        
+    elif (b_crop) and (data_product == 'Fitbit Data Per Minute'):
+        df = crop_end_fitbit_per_minute(data_product, participant_df, df, b_display)
+    df = fix_df_column_types(df,data_dictionary)
+    df.name = data_dictionary.name   
     return(df)
 
 def load_baseline(data_catalog, data_product, filename):
@@ -206,4 +252,27 @@ def get_catalogs(catalog_file):
 def get_categories(dd, field):
     categories = dd.loc[field]['Notes'].split(' | ')
     return categories
+
+def resample_fitbit_per_minute(participant='105', df=None, filename=None, interval='30Min'):
+    #1. Set df to desired input df, or set filename to load df (df=None)
+    #2. Set participant ID, for example: '105'
+    #3. Set interval for resampling, for example: '30Min'
+    if filename != None:
+        print('loading data for participant %s from %s' % (participant, filename))
+        df = pd.read_csv(filename, low_memory=False)
+    else:
+        print('getting data for participant', participant)
+        df = df.reset_index()
+    df = df.groupby(by='Subject ID').get_group(participant)
+    #Temporary fix for data export issue: replace S with 00 in time format
+    df['time'] = df['time'].map(lambda x: str(x).replace('S', '00'))
+    df['datetime'] = df['date'].astype(str) + ' ' + df['time'].astype(str)
+    df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%d %H:%M:%S')
+    df = df.set_index('datetime')
+    df = df.resample(interval, level=0).first()
+    df = df.reset_index().set_index(['Subject ID', 'time'])
+    df.sort_index(level=0)
+    df.name = 'Fitbit Data Per Minute'
+    return df
+
 

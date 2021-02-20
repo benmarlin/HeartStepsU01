@@ -3,6 +3,7 @@ import matplotlib as mpl
 if os.environ.get('DISPLAY','') == '':
     mpl.use('Agg')
 import matplotlib.pyplot as plt
+import time
 
 import pandas as pd
 import numpy as np
@@ -14,6 +15,11 @@ import numpyro.distributions as dist
 import numpyro.distributions.constraints as constraints
 from numpyro.infer import MCMC, NUTS, Predictive
 
+build_time = {}
+def save_build_time(title, start_time):
+    duration = (int)(time.time() - start_time)
+    #print('duration =', duration, 'seconds')
+    build_time[title] = duration
 
 def plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b_show=True): 
     #Plot data
@@ -83,7 +89,7 @@ def plot_posterior_predictive(model, posterior_samples, x_name, y_name, data_x, 
         plt.show() 
     plt.close('all')
 
-def model(xs=None, y_obs=None):
+def regression_model(xs=None, y_obs=None):
     mu = numpyro.sample('a', dist.Normal(0., 1000))
     M = xs.shape[1]  
     for i in range(M):
@@ -131,7 +137,8 @@ def split_data(df, y_name, b_split_per_participant, split_percent=0.8, b_display
 def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y_mean_lim=None):
     mcmcs = []
     for x_name in x_names:
-        title = y_name + ' vs ' + x_name
+        start_time_simple_regression = time.time()
+        title = y_name + ' vs ' + x_name + ' (regression model)'
         print('fitting for %s...' % title)        
 
         #Split the data and targets into training/testing sets, per participant
@@ -145,7 +152,7 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y
         
         #Fit model using NUTS
         rng_key = random.PRNGKey(0)
-        kernel = NUTS(model)
+        kernel = NUTS(regression_model)
         mcmc = MCMC(kernel, num_warmup=1000, num_samples=2000)
         mcmc.run(rng_key, xs=data_x, y_obs=data_y)
 
@@ -160,13 +167,15 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, b_show=True, y
 
         #Plot
         plot_data_regression_lines(samples, title, data_x, x_name, data_y, y_name, b_show)
-        plot_posterior_predictive(model, samples, x_name, y_name, data_x, data_y, test_data_x, test_data_y, y_mean_lim, b_show)
+        plot_posterior_predictive(regression_model, samples, x_name, y_name, data_x, data_y, test_data_x, test_data_y, y_mean_lim, b_show)
         mcmcs.append(mcmc)
+        save_build_time(title, start_time_simple_regression)
         print('\n\n\n')
     return mcmcs   
     
-def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):        
-    title = y_name + ' vs ' + str(x_names)
+def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
+    start_time_regression = time.time()
+    title = y_name + ' vs ' + str(x_names) + ' (regression model)'
     print('fitting for %s...' % title)
 
     #Split the data and targets into training/testing sets, per participant
@@ -180,7 +189,7 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
         
     #Fit model using NUTS
     rng_key = random.PRNGKey(0)
-    kernel = NUTS(model)
+    kernel = NUTS(regression_model)
     mcmc = MCMC(kernel, num_warmup=1000, num_samples=2000)
     mcmc.run(rng_key, xs=data_xs, y_obs=data_y)
 
@@ -192,15 +201,18 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, b_show=True):
     ss = samples['sigma']
     print('sigma mean = %.2f\tstd = %.2f\tmedian = %.2f\tQ5%% = %.2f\tQ95%% = %.2f' % (
           np.mean(ss), np.std(ss), np.median(ss), np.quantile(ss, 0.05, axis=0), np.quantile(ss, 0.95, axis=0)))
+    save_build_time(title, start_time_regression)
     print('\n\n\n')
     return mcmc
 
-if __name__ == '__main__':
+if __name__ == '__main__': 
     test_df = pd.read_csv('test_df.csv')    #Replace with desired test_df
     test_df = test_df.set_index(['Subject ID', 'Date'])
     x_names = ['Committed', 'Busy', 'Rested']
     y_name = 'Fitbit Step Count'
     mcmcs = fit_simple_regression_model_numpyro(test_df , y_name, x_names, b_show=False)
     mcmc  = fit_regression_model_numpyro(test_df , y_name, x_names, b_show=True)
+    print('build_time numpyro =', build_time)
+    pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_numpyro.csv', header=False)
     print('finished!')
 
