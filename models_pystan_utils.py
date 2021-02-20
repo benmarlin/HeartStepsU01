@@ -2,22 +2,23 @@ import numpy as np
 import pandas as pd
 import os.path
 from os import path
-import time
+import collections
+import timeit
 import pystan
 import pickle
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-build_time = {}
+build_time = collections.defaultdict(list)
 def save_build_time(title, start_time, b_load_existing):
-    duration = (int)(time.time() - start_time)
+    duration = (int)(timeit.default_timer() - start_time)
     #print('duration =', duration, 'seconds')
     if b_load_existing:
         title += ' loaded'
     else:
         title += ' compiled'
-    build_time[title] = duration
+    build_time[title].append(duration)
         
 def set_name(name):
     return str(name).lower().replace(' ', '_')
@@ -149,7 +150,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_exist
 
     for x_name in x_names:
         #Compile or load model
-        start_time_simple_regression = time.time()
+        start_time_simple_regression = timeit.default_timer()
         model_name = model_type + '_' + set_name(y_name) + '_' + set_name(x_name)
         stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
@@ -163,13 +164,13 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_exist
         #Display summary
         title = y_name + ' vs ' + x_name + ' (' + model_type + ' model)'
         print('summary for %s =\n%s\n' % (title, get_df_summary(fit)))        
+        save_build_time(title, start_time_simple_regression, b_load_existing)
 
         #Plot
         plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_show)
         plot_trace_and_posteriors(title, fit, 'alpha', b_show)
         plot_trace_and_posteriors(title, fit, 'beta',  b_show)
         plot_trace_and_posteriors(title, fit, 'sigma', b_show)
-        save_build_time(title, start_time_simple_regression, b_load_existing)
         print('\n')
 
 def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=False, b_show=True):    
@@ -193,7 +194,7 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=Fal
     """
 
     #Compile or load model
-    start_time_regression = time.time()
+    start_time_regression = timeit.default_timer()
     model_name = model_type + '_' + set_name(y_name)
     for x_name in x_names:
         model_name += '_' + set_name(x_name)
@@ -210,6 +211,7 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=Fal
     #Display summary
     title = y_name + ' vs ' + str(x_names) + ' (' + model_type + ' model)'
     print('summary for %s =\n%s\n' % (title, get_df_summary(fit)))        
+    save_build_time(title, start_time_regression, b_load_existing)
 
     #Plot
     plot_trace_and_posteriors(title, fit, 'alpha', b_show)
@@ -217,7 +219,6 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=Fal
         beta_name = 'beta[' + str(k) + ']'
         plot_trace_and_posteriors(title, fit, beta_name, b_show)
     plot_trace_and_posteriors(title, fit, 'sigma', b_show)
-    save_build_time(title, start_time_regression, b_load_existing)
     print('\n')
 
 def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name, degree_p=1, b_load_existing=True, b_show=True):
@@ -251,7 +252,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             df_individual = group.get_group(participant_name)
 
             #Compile or load model
-            start_time_autoregressive = time.time()
+            start_time_autoregressive = timeit.default_timer()
             model_name = model_type + str(degree_p) + '_' + participant_name + '_' + set_name(y_name)
             stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
@@ -263,6 +264,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             #Display summary
             title = participant_name + ' ' + y_name + ' (' + model_type + ' model)'
             print('summary for participant %s =\n%s\n' % (title, get_df_summary(fit)))  
+            save_build_time(title, start_time_autoregressive, b_load_existing)
 
             #Plot
             plot_time_series(title, df_individual, y_name, time_name, b_show)            
@@ -271,7 +273,6 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
                 beta_name = 'beta[' + str(p) + ']'
                 plot_trace_and_posteriors(title, fit, beta_name, b_show)
             plot_trace_and_posteriors(title, fit, 'sigma', b_show)
-            save_build_time(title, start_time_autoregressive, b_load_existing)
             print('\n')
         else:
             print('cannot find participant ', participant_name)
@@ -282,15 +283,17 @@ if __name__ == '__main__':
     y_name = 'Fitbit Step Count'
     x_names = ['Committed', 'Busy', 'Rested']
     b_load_existing = True
-    fit_simple_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
-    fit_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
-    participants = ['102', '105']
-    fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
-                             degree_p=2, b_load_existing=b_load_existing, b_show=False)
-    if b_load_existing:
-        detail = 'loaded'
-    else:
-        detail = 'compiled'
-    print('build time pystan (%s) = %s' % (detail, build_time))
-    pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_pystan_' + detail + '.csv', header=False)
+    n_repeats = 1
+    for repeat in range(n_repeats):
+        fit_simple_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
+        fit_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
+        participants = ['102', '105']
+        fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
+                                 degree_p=2, b_load_existing=b_load_existing, b_show=False)
+        if b_load_existing:
+            detail = 'loaded'
+        else:
+            detail = 'compiled'
+        print('build_time pystan %s (repeat=%d) = %s\n\n\n' % (detail, repeat, dict(build_time)))
+        pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_pystan_' + detail + '.csv', header=False)
     print('finished!')
