@@ -50,7 +50,7 @@ def get_df_summary(fit):
                   index=summary_dict['summary_rownames'])
     return df_summary
 
-def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_show=True): 
+def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim=None, y_lim=None, b_show=True): 
     #Plot data
     plt.figure(figsize=(7,5))
     plt.scatter(data_x, data_y, s=10, alpha=.5, marker='o', label='data')    
@@ -74,8 +74,10 @@ def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_sho
     plt.plot(xs, alpha_mean + beta_mean * xs, color='blue', lw=2, label='fitted')
     plt.ylabel(y_name)
     plt.xlabel(x_name)
-    plt.ylim(y_min-5000, y_max+3000)
-    plt.xlim(x_min-0.5,  x_max+0.5)
+    if x_lim != None:
+        plt.ylim(y_lim)
+    if x_lim != None:
+        plt.xlim(x_lim)
     plt.title(title + ':\ndata and ' + str(n_samples) + ' fitted regression lines')
     plt.gcf().tight_layout()
     plt.legend(loc=4)
@@ -130,7 +132,7 @@ def plot_time_series(title, df, y_name, time_name, b_show):
     plt.close('all')
     
 def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
-                                b_load_existing=False, b_show=True):    
+                                x_lim=None, y_lim=None, b_load_existing=False, b_show=True):    
 
     model_type = 'regression'
     model_code = """
@@ -167,7 +169,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         save_build_time(title, start_time_simple_regression, b_load_existing)
 
         #Plot
-        plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_show)
+        plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim, y_lim, b_show)
         plot_trace_and_posteriors(title, fit, 'alpha', b_show)
         plot_trace_and_posteriors(title, fit, 'beta',  b_show)
         plot_trace_and_posteriors(title, fit, 'sigma', b_show)
@@ -288,7 +290,8 @@ if __name__ == '__main__':
     b_load_existing = True
     n_repeats = 1
     for repeat in range(n_repeats):
-        fit_simple_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
+        fit_simple_regression_model(data_dir, test_df, y_name, x_names, y_lim=(-5000, 35000), x_lim=(0.5, 5.5),
+                                    b_load_existing=b_load_existing, b_show=False)
         fit_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
         participants = ['102', '105']
         fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
