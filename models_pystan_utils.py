@@ -237,7 +237,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
     parameters {
         real alpha;
         real beta[P];
-        real sigma;
+        real<lower=0> sigma;
     }
     model {
         for (n in (P+1):N) {
