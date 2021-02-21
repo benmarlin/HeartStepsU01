@@ -273,6 +273,7 @@ def resample_fitbit_per_minute(participant='105', df=None, filename=None, interv
     df = df.reset_index().set_index(['Subject ID', 'time'])
     df.sort_index(level=0)
     df.name = 'Fitbit Data Per Minute'
+    df = df.dropna()
     return df
 
 
