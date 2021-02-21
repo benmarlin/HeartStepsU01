@@ -50,7 +50,7 @@ def get_df_summary(fit):
                   index=summary_dict['summary_rownames'])
     return df_summary
 
-def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_show=True): 
+def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim=None, y_lim=None, b_show=True): 
     #Plot data
     plt.figure(figsize=(7,5))
     plt.scatter(data_x, data_y, s=10, alpha=.5, marker='o', label='data')    
@@ -74,9 +74,11 @@ def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_sho
     plt.plot(xs, alpha_mean + beta_mean * xs, color='blue', lw=2, label='fitted')
     plt.ylabel(y_name)
     plt.xlabel(x_name)
-    plt.ylim(y_min-5000, y_max+3000)
-    plt.xlim(x_min-0.5,  x_max+0.5)
-    plt.title(title + ': data and ' + str(n_samples) + ' fitted regression lines')
+    if x_lim != None:
+        plt.ylim(y_lim)
+    if x_lim != None:
+        plt.xlim(x_lim)
+    plt.title(title + ':\ndata and ' + str(n_samples) + ' fitted regression lines')
     plt.gcf().tight_layout()
     plt.legend(loc=4)
     if b_show:
@@ -99,7 +101,7 @@ def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     plt.axhline(median, color='skyblue', lw=2, ls='--')
     plt.axhline(ci_lower, ls=':', color='darkgray')
     plt.axhline(ci_upper, ls=':', color='darkgray')
-    plt.title(title + ': trace and posterior distribution for {}'.format(parameter_name))
+    plt.title(title + ':\ntrace and posterior distribution for {}'.format(parameter_name))
     #Plot posterior mean and 95% confidence intervals
     plt.subplot(212)
     plt.hist(parameter_values, bins=50, density=True)
@@ -129,7 +131,8 @@ def plot_time_series(title, df, y_name, time_name, b_show):
         plt.show()
     plt.close('all')
     
-def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=False, b_show=True):    
+def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
+                                x_lim=None, y_lim=None, b_load_existing=False, b_show=True):    
 
     model_type = 'regression'
     model_code = """
@@ -155,11 +158,10 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_exist
         stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
         #Fit model
-        N = 1000
-        data_x = df_data[x_name].values[:N]
-        data_y = df_data[y_name].values[:N]
+        data_x = df_data[x_name].values
+        data_y = df_data[y_name].values
         data = {'N': len(data_x), 'x': data_x, 'y': data_y}        
-        fit = stan_model.sampling(data=data, iter=1000, chains=4, warmup=500, thin=1, seed=0)
+        fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
 
         #Display summary
         title = y_name + ' vs ' + x_name + ' (' + model_type + ' model)'
@@ -167,13 +169,14 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, b_load_exist
         save_build_time(title, start_time_simple_regression, b_load_existing)
 
         #Plot
-        plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, b_show)
+        plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim, y_lim, b_show)
         plot_trace_and_posteriors(title, fit, 'alpha', b_show)
         plot_trace_and_posteriors(title, fit, 'beta',  b_show)
         plot_trace_and_posteriors(title, fit, 'sigma', b_show)
         print('\n')
 
-def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=False, b_show=True):    
+def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
+                         b_load_existing=False, b_show=True):    
 
     model_type = 'regression'
     model_code = """
@@ -201,12 +204,11 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=Fal
     stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
     #Fit model
-    N = 1000
-    data_X = df_data[x_names].values[:N]
-    data_y = df_data[y_name].values[:N]
+    data_X = df_data[x_names].values
+    data_y = df_data[y_name].values
 
     data = {'N': data_X.shape[0], 'K': data_X.shape[1], 'X': data_X, 'y': data_y}        
-    fit = stan_model.sampling(data=data, iter=1000, chains=4, warmup=500, thin=1, seed=0)
+    fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
 
     #Display summary
     title = y_name + ' vs ' + str(x_names) + ' (' + model_type + ' model)'
@@ -221,7 +223,9 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, b_load_existing=Fal
     plot_trace_and_posteriors(title, fit, 'sigma', b_show)
     print('\n')
 
-def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name, degree_p=1, b_load_existing=True, b_show=True):
+def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
+                             n_iters=2000, warmup=1000, chains=4,
+                             degree_p=1, b_load_existing=True, b_show=True):
     
     model_type = 'autoregressive'
     model_code = """
@@ -259,7 +263,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             #Fit model
             data_y = df_individual[y_name].values
             data = {'P': degree_p, 'N': len(data_y), 'y': data_y}
-            fit = stan_model.sampling(data=data, iter=1000, chains=4, warmup=500, thin=1, seed=0)
+            fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
 
             #Display summary
             title = participant_name + ' ' + y_name + ' (' + model_type + ' model)'
@@ -280,12 +284,14 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
 if __name__ == '__main__': 
     data_dir = "../../U01Data/"            #Replace with desired data_dir
     test_df = pd.read_csv('test_df.csv')   #Replace with desired test_df
+    test_df = test_df.dropna()
     y_name = 'Fitbit Step Count'
     x_names = ['Committed', 'Busy', 'Rested']
     b_load_existing = True
     n_repeats = 1
     for repeat in range(n_repeats):
-        fit_simple_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
+        fit_simple_regression_model(data_dir, test_df, y_name, x_names, y_lim=(-5000, 35000), x_lim=(0.5, 5.5),
+                                    b_load_existing=b_load_existing, b_show=False)
         fit_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
         participants = ['102', '105']
         fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
