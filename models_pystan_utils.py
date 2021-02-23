@@ -9,15 +9,18 @@ import pickle
 import matplotlib
 import matplotlib.pyplot as plt
 import seaborn as sns
+from textwrap import wrap
 
+fig_size = (7,5)
 build_time = collections.defaultdict(list)
 def save_build_time(title, start_time, b_load_existing):
-    duration = (int)(timeit.default_timer() - start_time)
-    print('duration =', duration, 'seconds')
+    duration = (int)(timeit.default_timer() - start_time)    
     if b_load_existing:
         title += ' loaded'
+        print('loaded duration =', duration, 'seconds')
     else:
         title += ' compiled'
+        print('compiled duration =', duration, 'seconds')
     build_time[title].append(duration)
         
 def set_name(name):
@@ -52,7 +55,7 @@ def get_df_summary(fit):
 
 def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim=None, y_lim=None, b_show=True): 
     #Plot data
-    plt.figure(figsize=(7,5))
+    plt.figure(figsize=fig_size)
     plt.scatter(data_x, data_y, s=10, alpha=.5, marker='o', label='data')    
     #Plot regression lines
     x_min = data_x.min()
@@ -78,11 +81,15 @@ def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim
         plt.ylim(y_lim)
     if x_lim != None:
         plt.xlim(x_lim)
-    plt.title(title + ':\ndata and ' + str(n_samples) + ' fitted regression lines')
+    plot_title = "\n".join(wrap(title, 80))
+    plot_title += ':\ndata and ' + str(n_samples) + ' fitted regression lines'
+    plt.title(plot_title)
     plt.gcf().tight_layout()
     plt.legend(loc=4)
     if b_show:
         plt.show()
+    else:
+        plt.savefig(title + '_regression.png')
     plt.close('all')
 
 def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
@@ -92,7 +99,7 @@ def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     median = np.median(parameter_values)
     ci_lower = np.percentile(parameter_values, 2.5)
     ci_upper = np.percentile(parameter_values, 97.5)
-    plt.figure(figsize=(7,4))
+    plt.figure(figsize=fig_size)
     plt.subplot(211)
     plt.plot(parameter_values)
     plt.xlabel('samples')
@@ -101,7 +108,9 @@ def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     plt.axhline(median, color='skyblue', lw=2, ls='--')
     plt.axhline(ci_lower, ls=':', color='darkgray')
     plt.axhline(ci_upper, ls=':', color='darkgray')
-    plt.title(title + ':\ntrace and posterior distribution for {}'.format(parameter_name))
+    plot_title = "\n".join(wrap(title, 80))
+    plot_title += ':\ntrace and posterior distribution for {}'.format(parameter_name)
+    plt.title(plot_title)
     #Plot posterior mean and 95% confidence intervals
     plt.subplot(212)
     plt.hist(parameter_values, bins=50, density=True)
@@ -116,19 +125,24 @@ def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     plt.legend(loc=4)
     if b_show:
         plt.show()
+    else:
+        plt.savefig(title + '_trace.png')
     plt.close('all')
 
 def plot_time_series(title, df, y_name, time_name, b_show):
-    plt.figure(figsize=(7,3))
+    plt.figure(figsize=(fig_size[0],2))
     df_plot = df.reset_index().set_index(time_name)
     df_plot[y_name].plot()
     plt.ylabel(y_name)
     plt.xlabel('')
     plt.grid(True)
-    plt.title(title + ': data')
+    plot_title = "\n".join(wrap(title, 80)) + ': data'
+    plt.title(plot_title)
     plt.gcf().tight_layout()
     if b_show:
         plt.show()
+    else:
+        plt.savefig(title + '_time_series.png')
     plt.close('all')
     
 def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
