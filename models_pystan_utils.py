@@ -68,7 +68,7 @@ def plot_data_regression_lines(fit, title, data_x, x_name, data_y, y_name, x_lim
     sigma = fit['sigma']
     np.random.shuffle(alpha)
     np.random.shuffle(beta)
-    n_samples = 1000
+    n_samples = min(1000, len(alpha))
     for i in range(n_samples):
         plt.plot(xs, alpha[i] + beta[i] * xs, color='blue', alpha=0.005)
     plt.plot(xs, alpha_mean + beta_mean * xs, color='blue', lw=2, label='fitted')
@@ -132,7 +132,7 @@ def plot_time_series(title, df, y_name, time_name, b_show):
     plt.close('all')
     
 def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
-                                x_lim=None, y_lim=None, b_load_existing=False, b_show=True):    
+                                max_treedepth=10, x_lim=None, y_lim=None, b_load_existing=False, b_show=True):    
 
     model_type = 'regression'
     model_code = """
@@ -162,7 +162,8 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         data_x = df_data[x_name].values
         data_y = df_data[y_name].values
         data = {'N': len(data_x), 'x': data_x, 'y': data_y}        
-        fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
+        fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0,
+                                  control=dict(max_treedepth=max_treedepth))
 
         #Display summary
         title = y_name + ' vs ' + x_name + ' (' + model_type + ' model)'
@@ -177,7 +178,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         print('\n')
 
 def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
-                         b_load_existing=False, b_show=True):    
+                         max_treedepth=10, b_load_existing=False, b_show=True):    
 
     model_type = 'regression'
     model_code = """
@@ -209,7 +210,8 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmu
     data_X = df_data[x_names].values
     data_y = df_data[y_name].values
     data = {'N': data_X.shape[0], 'K': data_X.shape[1], 'X': data_X, 'y': data_y}        
-    fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
+    fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0,
+                              control=dict(max_treedepth=max_treedepth))
 
     #Display summary
     title = y_name + ' vs ' + str(x_names) + ' (' + model_type + ' model)'
