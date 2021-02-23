@@ -177,6 +177,7 @@ def impute(df, methods):
         df_i = df_i.reset_index().set_index(['Subject ID', 'Date'])        
         frames.append(df_i)
     df = pd.concat(frames)
+    df = df.dropna()
     df = df.sort_index(level='Subject ID')
     return df
         
