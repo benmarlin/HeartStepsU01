@@ -13,7 +13,7 @@ import seaborn as sns
 build_time = collections.defaultdict(list)
 def save_build_time(title, start_time, b_load_existing):
     duration = (int)(timeit.default_timer() - start_time)
-    #print('duration =', duration, 'seconds')
+    print('duration =', duration, 'seconds')
     if b_load_existing:
         title += ' loaded'
     else:
@@ -119,7 +119,7 @@ def plot_trace_and_posteriors(title, fit, parameter_name, b_show=True):
     plt.close('all')
 
 def plot_time_series(title, df, y_name, time_name, b_show):
-    plt.figure(figsize=(7,1.5))
+    plt.figure(figsize=(7,3))
     df_plot = df.reset_index().set_index(time_name)
     df_plot[y_name].plot()
     plt.ylabel(y_name)
@@ -158,6 +158,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
         #Fit model
+        print('start fitting...')
         data_x = df_data[x_name].values
         data_y = df_data[y_name].values
         data = {'N': len(data_x), 'x': data_x, 'y': data_y}        
@@ -204,9 +205,9 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmu
     stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
     #Fit model
+    print('start fitting...')
     data_X = df_data[x_names].values
     data_y = df_data[y_name].values
-
     data = {'N': data_X.shape[0], 'K': data_X.shape[1], 'X': data_X, 'y': data_y}        
     fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
 
@@ -224,7 +225,7 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmu
     print('\n')
 
 def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
-                             n_iters=2000, warmup=1000, chains=4,
+                             n_iters=2000, warmup=1000, chains=4, max_treedepth=10,
                              degree_p=1, b_load_existing=True, b_show=True):
     
     model_type = 'autoregressive'
@@ -261,9 +262,11 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
             #Fit model
+            print('start fitting...')
             data_y = df_individual[y_name].values
             data = {'P': degree_p, 'N': len(data_y), 'y': data_y}
-            fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0)
+            fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0,
+                                      control=dict(max_treedepth=max_treedepth))           
 
             #Display summary
             title = participant_name + ' ' + y_name + ' (' + model_type + ' model)'
