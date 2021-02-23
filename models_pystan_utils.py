@@ -22,7 +22,13 @@ def save_build_time(title, start_time, b_load_existing):
         title += ' compiled'
         print('compiled duration =', duration, 'seconds')
     build_time[title].append(duration)
-        
+
+def build_df(filename):
+    df = pd.read_csv(filename).dropna()
+    df['Subject ID'] = df['Subject ID'].astype(str)
+    df = df.set_index(['Subject ID', 'Date'])
+    return df
+    
 def set_name(name):
     return str(name).lower().replace(' ', '_')
     
@@ -34,12 +40,12 @@ def load_model(data_dir, model_name, model_code, b_load_existing):
         print(pickle_name + ' file does not exist')
         b_load_existing = False            
     if b_load_existing == False:
-        print('compiling Stan model and saving to %s...\n' % pickle_name)
+        print('compiling Stan model and saving to %s...' % pickle_name)
         stan_model = pystan.StanModel(model_code=model_code)
         with open(pickle_name, 'wb') as f:
             pickle.dump(stan_model, f)
     else:
-        print('loading %s...\n' % pickle_name)
+        print('loading %s...' % pickle_name)
         stan_model = pickle.load(open(pickle_name, 'rb'))
     return stan_model
 
@@ -172,7 +178,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
         #Fit model
-        print('start fitting...')
+        print('start fitting...\n')
         data_x = df_data[x_name].values
         data_y = df_data[y_name].values
         data = {'N': len(data_x), 'x': data_x, 'y': data_y}        
@@ -181,7 +187,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
 
         #Display summary
         title = y_name + ' vs ' + x_name + ' (' + model_type + ' model)'
-        print('summary for %s =\n%s\n' % (title, get_df_summary(fit)))        
+        print('summary for %s =\n%s' % (title, get_df_summary(fit)))        
         save_build_time(title, start_time_simple_regression, b_load_existing)
 
         #Plot
@@ -220,7 +226,7 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmu
     stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
     #Fit model
-    print('start fitting...')
+    print('start fitting...\n')
     data_X = df_data[x_names].values
     data_y = df_data[y_name].values
     data = {'N': data_X.shape[0], 'K': data_X.shape[1], 'X': data_X, 'y': data_y}        
@@ -229,7 +235,7 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmu
 
     #Display summary
     title = y_name + ' vs ' + str(x_names) + ' (' + model_type + ' model)'
-    print('summary for %s =\n%s\n' % (title, get_df_summary(fit)))        
+    print('summary for %s =\n%s' % (title, get_df_summary(fit)))        
     save_build_time(title, start_time_regression, b_load_existing)
 
     #Plot
@@ -278,7 +284,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             stan_model = load_model(data_dir, model_name, model_code, b_load_existing)
 
             #Fit model
-            print('start fitting...')
+            print('start fitting...\n')
             data_y = df_individual[y_name].values
             data = {'P': degree_p, 'N': len(data_y), 'y': data_y}
             fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0,
@@ -286,7 +292,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
 
             #Display summary
             title = participant_name + ' ' + y_name + ' (' + model_type + ' model)'
-            print('summary for participant %s =\n%s\n' % (title, get_df_summary(fit)))  
+            print('summary for participant %s =\n%s' % (title, get_df_summary(fit)))  
             save_build_time(title, start_time_autoregressive, b_load_existing)
 
             #Plot
@@ -298,27 +304,51 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             plot_trace_and_posteriors(title, fit, 'sigma', b_show)
             print('\n')
         else:
-            print('cannot find participant ', participant_name)
+            print('cannot find participant', participant_name)
 
 if __name__ == '__main__': 
-    data_dir = "../../U01Data/"            #Replace with desired data_dir
-    test_df = pd.read_csv('test_df.csv')   #Replace with desired test_df
-    test_df = test_df.dropna()
-    y_name = 'Fitbit Step Count'
-    x_names = ['Committed', 'Busy', 'Rested']
+    data_dir = "../../U01Data/"             #Replace with desired data_dir
+    filename1 = 'df_mood_fitbit_daily.csv'  #Replace with desired csv file
+    filename2 = 'df_imputed_105_10Min.csv'  #Replace with desired csv file      
+    chosen_df1 = build_df(filename1)
+    chosen_df2 = build_df(filename2)
+    print('chosen_df1.shape =', chosen_df1.shape)
+    print('chosen_df2.shape =', chosen_df2.shape)
+    print()
     b_load_existing = True
-    n_repeats = 1
+    b_show = False
+    if b_load_existing:
+        detail = 'loaded'
+    else:
+        detail = 'compiled'
+    n_repeats = 1 # 5
+    
     for repeat in range(n_repeats):
-        fit_simple_regression_model(data_dir, test_df, y_name, x_names, y_lim=(-5000, 35000), x_lim=(0.5, 5.5),
-                                    b_load_existing=b_load_existing, b_show=False)
-        fit_regression_model(data_dir, test_df, y_name, x_names, b_load_existing=b_load_existing, b_show=False)
+        
+        #Analysis with Daily Metrics Data
         participants = ['102', '105']
-        fit_autoregressive_model(data_dir, test_df, participants, y_name=y_name, time_name='Date',
-                                 degree_p=2, b_load_existing=b_load_existing, b_show=False)
-        if b_load_existing:
-            detail = 'loaded'
-        else:
-            detail = 'compiled'
+        y_name = 'Fitbit Step Count'
+        x_names = ['Committed', 'Busy', 'Rested']    
+        fit_simple_regression_model(data_dir, chosen_df1, y_name, x_names, y_lim=(-5000, 35000), x_lim=(0.5, 5.5),
+                                    b_load_existing=b_load_existing, b_show=b_show)
+        fit_regression_model(data_dir, chosen_df1, y_name, x_names, b_load_existing=b_load_existing, b_show=b_show)
+        fit_autoregressive_model(data_dir, chosen_df1, participants, y_name=y_name, time_name='Date',
+                                 degree_p=2, b_load_existing=b_load_existing, b_show=b_show)
         print('build_time pystan %s (repeat=%d) = %s\n\n\n' % (detail, repeat, dict(build_time)))
         pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_pystan_' + detail + '.csv', header=False)
+        
+        
+        #Analysis with Fitbit Data Per Minute
+        participants = ['105']
+        y_name = 'steps'
+        x_names = ['Committed', 'Busy', 'Rested']
+        fit_simple_regression_model(data_dir, chosen_df2, y_name, x_names, n_iters=500, warmup=200, chains=4,
+                                    b_load_existing=b_load_existing, b_show=b_show)
+        fit_regression_model(data_dir, chosen_df2, y_name, x_names, n_iters=1000, warmup=300, chains=1, max_treedepth=12,
+                             b_load_existing=b_load_existing, b_show=b_show)
+        fit_autoregressive_model(data_dir, chosen_df2, participants, y_name=y_name, time_name='Date',
+                                 degree_p=2, b_load_existing=b_load_existing, b_show=b_show)        
+        print('build_time pystan %s (repeat=%d) = %s\n\n\n' % (detail, repeat, dict(build_time)))
+        pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_pystan_' + detail + '.csv', header=False)
+        
     print('finished!')
