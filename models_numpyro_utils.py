@@ -63,7 +63,7 @@ def plot_data_regression_lines(samples, title, df, x_name, y_name, x_lim=None, y
         plt.savefig(title + '_regression.png')
     plt.close('all')
 
-def regression_model2(df, y_name, x_names):
+def regression_model(df, y_name, x_names):
     xs = jnp.array(df[x_names].values)
     y_obs = df[y_name].values   
     mu = numpyro.sample('intercept', dist.Normal(0., 1000))
@@ -85,7 +85,7 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, x_lim=None, y_
 
         #Fit model
         rng_key = random.PRNGKey(0)
-        kernel = NUTS(regression_model2)
+        kernel = NUTS(regression_model)
         mcmc = MCMC(kernel, num_warmup=500, num_samples=1000)
         mcmc.run(rng_key, df=df_data, y_name=y_name, x_names=[x_name])
         
@@ -112,7 +112,7 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, y_mean_lim=None, b_sh
 
     #Fit model
     rng_key = random.PRNGKey(0)
-    kernel = NUTS(regression_model2)
+    kernel = NUTS(regression_model)
     mcmc = MCMC(kernel, num_warmup=500, num_samples=1000)
     mcmc.run(rng_key, df=df_data, y_name=y_name, x_names=x_names)
 
