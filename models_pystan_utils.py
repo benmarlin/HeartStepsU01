@@ -171,6 +171,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
     }
     """
 
+    fits = []
     for x_name in x_names:
         #Compile or load model
         start_time_simple_regression = timeit.default_timer()
@@ -184,6 +185,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         data = {'N': len(data_x), 'x': data_x, 'y': data_y}        
         fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0,
                                   control=dict(max_treedepth=max_treedepth))
+        fits.append(fit)
 
         #Display summary
         title = y_name + ' vs ' + x_name + ' (' + model_type + ' model)'
@@ -196,6 +198,7 @@ def fit_simple_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000
         plot_trace_and_posteriors(title, fit, 'beta',  b_show)
         plot_trace_and_posteriors(title, fit, 'sigma', b_show)
         print('\n')
+    return fits
 
 def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmup=1000, chains=4,
                          max_treedepth=10, b_load_existing=False, b_show=True):    
@@ -245,6 +248,7 @@ def fit_regression_model(data_dir, df_data, y_name, x_names, n_iters=2000, warmu
         plot_trace_and_posteriors(title, fit, beta_name, b_show)
     plot_trace_and_posteriors(title, fit, 'sigma', b_show)
     print('\n')
+    return fit
 
 def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
                              n_iters=2000, warmup=1000, chains=4, max_treedepth=10,
@@ -272,6 +276,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
     }
     """        
 
+    fits = []
     all_participants = get_all_participants(df_data)
     group = df_data.groupby(by=['Subject ID'])
     for participant_name in participants:
@@ -288,7 +293,8 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             data_y = df_individual[y_name].values
             data = {'P': degree_p, 'N': len(data_y), 'y': data_y}
             fit = stan_model.sampling(data=data, iter=n_iters, chains=chains, warmup=warmup, thin=1, seed=0,
-                                      control=dict(max_treedepth=max_treedepth))           
+                                      control=dict(max_treedepth=max_treedepth))
+            fits.append(fit)
 
             #Display summary
             title = participant_name + ' ' + y_name + ' (' + model_type + ' model)'
@@ -305,6 +311,7 @@ def fit_autoregressive_model(data_dir, df_data, participants, y_name, time_name,
             print('\n')
         else:
             print('cannot find participant', participant_name)
+    return fits
 
 if __name__ == '__main__': 
     data_dir = "../../U01Data/"             #Replace with desired data_dir
