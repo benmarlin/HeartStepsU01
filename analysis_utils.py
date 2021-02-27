@@ -53,24 +53,20 @@ def process_fitbit_minute(df):
     df = df.drop(columns=['fitbit_account', 'username', 'date'])
     return df
 
-def concatenate_mood_fitbit_minute(df1, df2, df3_fitbit, participant):
-    #Concatenate df1, df2, df3 using outer join by 'Date'
-    #The start date is the first date of df1 or df2
+def concatenate_mood_fitbit_minute(df1, df_fitbit, participant):
+    #Concatenate df1, df_fitbit using outer join by 'Date'
+    #The start date is the first date of df1
     df1 = df1.reset_index()
-    df2 = df2.reset_index()
-    df3_fitbit = df3_fitbit.reset_index()
+    df_fitbit = df_fitbit.reset_index()
     df1['Date'] = pd.to_datetime(df1['Date'])
-    df2['Date'] = pd.to_datetime(df2['Date'])
-    df3_fitbit['Date'] = pd.to_datetime(df3_fitbit['Date'])
-    start_date = max(df1['Date'].min(), df2['Date'].min())
+    df_fitbit['Date'] = pd.to_datetime(df_fitbit['Date'])
+    start_date = df1['Date'].min()
     print('combined start_date =', start_date)
     df1 = df1[df1['Date'] >= start_date]
-    df2 = df2[df2['Date'] >= start_date]
-    df3_fitbit = df3_fitbit[df3_fitbit['Date'] >= start_date]
+    df_fitbit = df_fitbit[df_fitbit['Date'] >= start_date]
     df1 = df1.set_index(['Date'])
-    df2 = df2.set_index(['Date'])
-    df3_fitbit = df3_fitbit.set_index(['Date'])
-    df_combined = pd.concat([df1, df2, df3_fitbit], join='outer', axis=1)  # union on index
+    df_fitbit = df_fitbit.set_index(['Date'])
+    df_combined = pd.concat([df1, df_fitbit], join='outer', axis=1)  # union on index
     df_combined = df_combined.loc[:,~df_combined.columns.duplicated()].reset_index()
     df_combined['Subject ID'] = participant
     df_combined['Date'] = pd.to_datetime(df_combined['Date'], format='%Y-%m-%d %H:%M:%S')
