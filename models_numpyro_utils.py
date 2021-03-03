@@ -34,6 +34,10 @@ def build_df(filename, b_set_index=True, b_drop=True):
         df = df.set_index(['Subject ID', 'Date'])
     return df
 
+def map_to_daily_mood(df, x_names):
+    df[x_names] = df[x_names].ffill().bfill()  
+    return df
+
 def plot_data(df_data, y_name, x_names, y_lim=None, b_show=True):       
     plt.figure(figsize=fig_size)
     plot_title = y_name + ' vs ' + str(x_names)
@@ -297,10 +301,13 @@ if __name__ == '__main__':
         '''
 
         #Inference with missing data
+        b_fill = False
         b_summary = False
         x_names = ['heart_rate']
         y_name  = 'steps'
         y_lim =(-0.5, 120)
+        if b_fill:
+            chosen_df3 = map_to_daily_mood(chosen_df3, x_names)
         chosen_df3 = chosen_df3.dropna(subset=[y_name])
         for col in list(chosen_df3.columns):
             print('nan', chosen_df3[col].isna().sum(), '\t->', col)
