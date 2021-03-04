@@ -186,13 +186,14 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, y_mean_lim=None, b_sh
     print('\n\n\n')
     return mcmc
 
-def get_title(participant, df_data1, y_name, x_names, b_classify):
-    rows  = df_data1.shape[0]
+def get_title(participant, df_data1, df_data2, y_name, x_names, b_classify):
+    rows1 = df_data1.shape[0]
+    rows2 = df_data2.shape[0]
     detail = participant + ' ' + y_name + ' vs ' + str(x_names)
     if b_classify:
-        title = detail + ' (logistic regression N=' + str(rows) + ')'            
+        title = detail + ' (logistic regression N1=' + str(rows1) + ' N2=' + str(rows2) + ')'           
     else:
-        title = detail + ' (regression N=' + str(rows) + ')' 
+        title = detail + ' (regression N1=' + str(rows1) + ' N2=' + str(rows2) + ')' 
     return title
     
 def model_impute(data1, data2, y_name, y_index, x_names, mapping, b_classify, y_obs=None):
@@ -244,7 +245,6 @@ def align_start_stop_date(df_mood, df_fitbit):
 
 def fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, y_name, y_lim, b_summary, b_show):
     start_time = timeit.default_timer()
-    title = get_title(participant, df_data1, y_name, x_names, b_classify)
     df_data2, df_data1 = align_start_stop_date(df_data2, df_data1)
     if (df_data2.shape[0] == 0):
         print('not enough data')
@@ -254,10 +254,15 @@ def fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, 
     df_data1[y_index] = df_data1.groupby(['Date']).ngroup()
     df_data1, data1, df_data2, data2 = prepare_data(df_data1, df_data2, y_name, y_index, x_names,
                                                     b_standardize, b_show=b_show)
-    y_obs = df_data1[y_name].values   
-    mapping = df_data2[x_names].ffill().bfill().to_dict()
+    y_obs = df_data1[y_name].values
+    df_data2[x_names] = df_data2[x_names].ffill().bfill()
+    mapping = df_data2[x_names].to_dict()
+    
+    print('df_data1.shape =', df_data1.shape)
+    print('df_data2.shape =', df_data2.shape)
     
     # perform inference
+    title = get_title(participant, df_data1, df_data2, y_name, x_names, b_classify)
     print('%s start fitting %s...\n' % (datetime.now(), title))
     mcmc = MCMC(NUTS(model_impute), num_warmup=1000, num_samples=1000) 
     mcmc.run(random.PRNGKey(0), data1=data1, data2=data2, y_name=y_name, y_index=y_index,
@@ -348,9 +353,6 @@ if __name__ == '__main__':
             for length in lengths:
                 df_data1 = chosen_df3a.copy()[:length]  # fitbit
                 df_data2 = chosen_df3b.copy()[:length]  # mood
-                print('df_data1.shape =', df_data1.shape)
-                print('df_data2.shape =', df_data2.shape)
-                print()
 
                 #Perform regression            
                 b_classify = False
