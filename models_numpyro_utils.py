@@ -94,7 +94,7 @@ def plot_data_regression_lines(samples, title, df, x_name, y_name, x_lim=None, y
 
 def plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_name, y_lim=None, b_show=True):
     confidence = 0.95
-    posterior_mu = jnp.expand_dims(samples['a'], -1)
+    posterior_mu = jnp.expand_dims(samples['intercept'], -1)
     posterior_mu += jnp.expand_dims(samples['b_'+x_name], -1) * df_data2[x_name].values
     xs_to_sort = df_data2[x_name].values    
     idx = jnp.argsort(xs_to_sort)
@@ -121,19 +121,32 @@ def plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_name, 
         plt.savefig(filename)
     plt.close('all')
 
-def regression_model(df, y_name, x_names):
+def model_regression(df, y_name, x_names):
     xs = jnp.array(df[x_names].values)
     y_obs = df[y_name].values   
     mu = numpyro.sample('intercept', dist.Normal(0., 1000))
     M = xs.shape[1]  
     for i in range(M):
-        b_name = x_names[i]
+        b_name = 'b_'+x_names[i]
         bi = numpyro.sample(b_name, dist.Normal(0., 10.))
         bxi = bi * xs[:,i]
         mu = mu +  bxi        
     log_sigma = numpyro.sample('log_sigma', dist.Normal(0., 10.))    
     numpyro.sample(y_name, dist.Normal(mu, jnp.exp(log_sigma)), obs=y_obs)
 
+def model_impute(data1, y_name, y_index, x_names, mapping, b_classify, y_obs=None):
+    bias = numpyro.sample('intercept', dist.Normal(0, 10))
+    linear_predictor = bias
+    for x_name in x_names:
+        x_values = jnp.array([mapping[x_name][i] for i in list(data1[y_index])])      
+        b_value  = numpyro.sample('b_'+x_name, dist.Normal(0., 10.))
+        linear_predictor += b_value * x_values
+    if b_classify:     
+        numpyro.sample(y_name, dist.Bernoulli(logits=linear_predictor), obs=y_obs)
+    else:
+        log_sigma = numpyro.sample('log_sigma', dist.Normal(0., 10.))
+        numpyro.sample(y_name, dist.Normal(linear_predictor, jnp.exp(log_sigma)), obs=y_obs)
+        
 def fit_simple_regression_model_numpyro(df_data, y_name, x_names, x_lim=None, y_lim=None, y_mean_lim=None, b_show=True):
     mcmcs = []
     for x_name in x_names:
@@ -143,7 +156,7 @@ def fit_simple_regression_model_numpyro(df_data, y_name, x_names, x_lim=None, y_
 
         #Fit model
         rng_key = random.PRNGKey(0)
-        kernel = NUTS(regression_model)
+        kernel = NUTS(model_regression)
         mcmc = MCMC(kernel, num_warmup=500, num_samples=1000)
         mcmc.run(rng_key, df=df_data, y_name=y_name, x_names=[x_name])
         
@@ -170,7 +183,7 @@ def fit_regression_model_numpyro(df_data, y_name, x_names, y_mean_lim=None, b_sh
 
     #Fit model
     rng_key = random.PRNGKey(0)
-    kernel = NUTS(regression_model)
+    kernel = NUTS(model_regression)
     mcmc = MCMC(kernel, num_warmup=500, num_samples=1000)
     mcmc.run(rng_key, df=df_data, y_name=y_name, x_names=x_names)
 
@@ -196,18 +209,6 @@ def get_title(participant, df_data1, df_data2, y_name, x_names, b_classify):
         title = detail + ' (regression N1=' + str(rows1) + ' N2=' + str(rows2) + ')' 
     return title
     
-def model_impute(data1, data2, y_name, y_index, x_names, mapping, b_classify, y_obs=None):
-    a = numpyro.sample('a', dist.Normal(0, 10))
-    linear_predictor = a
-    for x_name in x_names:
-        x_values = jnp.array([mapping[x_name][i] for i in list(data1[y_index])])      
-        b_value  = numpyro.sample('b_'+x_name, dist.Normal(0, 10))
-        linear_predictor += b_value * x_values
-    if b_classify:     
-        numpyro.sample(y_name, dist.Bernoulli(logits=linear_predictor), obs=y_obs)
-    else:
-        numpyro.sample(y_name, dist.Normal(linear_predictor, 10), obs=y_obs)
-
 def prepare_data(df_data1, df_data2, y_name, y_index, x_names, b_standardize, b_show=True):
     data2 = {}          
     for x_name in x_names:
@@ -234,16 +235,16 @@ def align_start_stop_date(df_mood, df_fitbit):
     df_mood['Date'] = pd.to_datetime(df_mood['Date'])
     df_fitbit['Date'] = pd.to_datetime(df_fitbit['Date'])
     start_date = df_mood['Date'].min()
-    print('combined start_date =', start_date)
+    print('data start_date =', start_date)
     df_mood   = df_mood[df_mood['Date'] >= start_date]
     df_fitbit = df_fitbit[df_fitbit['Date'] >= start_date]
     stop_date = df_fitbit['Date'].max()
-    print('combined stop_date  =', stop_date)
+    print('data stop_date  =', stop_date)
     df_mood   = df_mood[df_mood['Date'] <= stop_date]
     df_fitbit = df_fitbit[df_fitbit['Date'] <= stop_date]
     return df_mood, df_fitbit
 
-def fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, y_name, y_lim, b_summary, b_show):
+def fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x_names, y_name, y_lim, b_summary, b_show):
     start_time = timeit.default_timer()
     df_data2, df_data1 = align_start_stop_date(df_data2, df_data1)
     if (df_data2.shape[0] == 0):
@@ -251,21 +252,22 @@ def fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, 
         return []
     b_standardize = False    
     y_index = 'y_index'
-    df_data1[y_index] = df_data1.groupby(['Date']).ngroup()
-    df_data1, data1, df_data2, data2 = prepare_data(df_data1, df_data2, y_name, y_index, x_names,
-                                                    b_standardize, b_show=b_show)
+    df_data1 = df_data1[:length]
+    df_data1[y_index] = df_data1.groupby(['Date']).ngroup()    
+    df_data1, data1, df_data2, _ = prepare_data(df_data1, df_data2, y_name, y_index, x_names,
+                                                b_standardize, b_show=b_show)
     y_obs = df_data1[y_name].values
     df_data2[x_names] = df_data2[x_names].ffill().bfill()
     mapping = df_data2[x_names].to_dict()
-    
-    print('df_data1.shape =', df_data1.shape)
-    print('df_data2.shape =', df_data2.shape)
+  
+    print('df_data1.shape  =', df_data1.shape)
+    print('df_data2.shape  =', df_data2.shape)
     
     # perform inference
     title = get_title(participant, df_data1, df_data2, y_name, x_names, b_classify)
     print('%s start fitting %s...\n' % (datetime.now(), title))
-    mcmc = MCMC(NUTS(model_impute), num_warmup=1000, num_samples=1000) 
-    mcmc.run(random.PRNGKey(0), data1=data1, data2=data2, y_name=y_name, y_index=y_index,
+    mcmc = MCMC(NUTS(model_impute), num_warmup=500, num_samples=1000) 
+    mcmc.run(random.PRNGKey(0), data1=data1, y_name=y_name, y_index=y_index,
              x_names=x_names, mapping=mapping, b_classify=b_classify, y_obs=y_obs)
     if b_summary:
         mcmc.print_summary()
@@ -273,7 +275,7 @@ def fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, 
     save_build_time(title, start_time)
 
     # posterior predictive distribution
-    y_pred = Predictive(model_impute, samples)(random.PRNGKey(1),data1=data1, data2=data2, y_name=y_name, y_index=y_index,
+    y_pred = Predictive(model_impute, samples)(random.PRNGKey(1), data1=data1, y_name=y_name, y_index=y_index,
                                                x_names=x_names, mapping=mapping, b_classify=b_classify)[y_name]
     if b_classify:
         y_pred = (y_pred.mean(axis=0) >= 0.5).astype(jnp.uint8)
@@ -324,7 +326,8 @@ if __name__ == '__main__':
         pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_numpyro.csv', header=False)
         '''
 
-        participants = [105]   # tested [69, 80, 105]
+        filename = 'build_time_numpyro_impute.csv'
+        participants = [105]  # tested [105, 69, 80]
         for participant in participants:
             participant = str(participant)
             filename3a = 'df_' + participant + '_fitbit_per_minute.csv'  #Replace with desired csv file
@@ -339,7 +342,7 @@ if __name__ == '__main__':
             #Inference with missing data
             b_fill = False
             print('b_fill (forward fill before inference) =', b_fill)
-            b_summary = False
+            b_summary = True
             x_names = ['Committed', 'Busy', 'Rested']
             y_name  = 'steps'
             y_lim = None
@@ -349,22 +352,23 @@ if __name__ == '__main__':
             for col in list(chosen_df3b.columns):
                 print('nan', chosen_df3b[col].isna().sum(), '\t->', col)
             print()
-            lengths = [100000] # [100000, 150000, 300000]
+            lengths = [1000] # [100000, 150000, 300000]
             for length in lengths:
-                df_data1 = chosen_df3a.copy()[:length]  # fitbit
-                df_data2 = chosen_df3b.copy()[:length]  # mood
+                df_data1 = chosen_df3a.copy()   # fitbit
+                df_data2 = chosen_df3b.copy()   # mood
 
                 #Perform regression            
                 b_classify = False
-                samples = fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, y_name, y_lim, b_summary, b_show)
+                samples = fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x_names, y_name,
+                                                y_lim, b_summary, b_show)
+                pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
                 
                 #Perform logistic regression
                 b_classify = True
                 if b_classify == True: #Convert steps to binary: 1 if steps > 0, else 0
                     df_data1[y_name] = df_data1[y_name].apply(lambda x: 1 if x > 0 else 0)
-                samples = fit_with_missing_data(participant, b_classify, df_data1, df_data2, x_names, y_name, y_lim, b_summary, b_show)
-
-                filename = 'build_time_numpyro_impute.csv'
+                samples = fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x_names, y_name,
+                                                y_lim, b_summary, b_show)
                 pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
      
     print('finished!')
