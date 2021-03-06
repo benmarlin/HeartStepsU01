@@ -253,7 +253,7 @@ def get_categories(dd, field):
     categories = dd.loc[field]['Notes'].split(' | ')
     return categories
 
-def resample_fitbit_per_minute(participant='105', df=None, filename=None, interval='30Min'):
+def resample_fitbit_per_minute(participant='105', df=None, filename=None, interval='30Min', b_dropna=True):
     #1. Set df to desired input df, or set filename to load df (df=None)
     #2. Set participant ID, for example: '105'
     #3. Set interval for resampling, for example: '30Min'
@@ -273,7 +273,8 @@ def resample_fitbit_per_minute(participant='105', df=None, filename=None, interv
     df = df.reset_index().set_index(['Subject ID', 'time'])
     df.sort_index(level=0)
     df.name = 'Fitbit Data Per Minute'
-    df = df.dropna()
+    if b_dropna:
+        df = df.dropna()
     return df
 
 
