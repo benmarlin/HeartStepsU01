@@ -121,6 +121,20 @@ def plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_name, 
         plt.savefig(filename)
     plt.close('all')
 
+def plot_data_AR(title, y_test, y_pred, n_forecast, b_show=True):
+    plt.figure(figsize=fig_size)
+    plt.plot(y_test, label='y test')
+    plt.plot(y_pred, label='y pred', ls=':',  lw=3, color='magenta')
+    plt.title('forecast = ' + str(n_forecast) + ' for ' + title)
+    plt.ylabel('y')
+    plt.xlabel('t')
+    plt.legend(loc=2)
+    if b_show:
+        plt.show()
+    else:
+        plt.savefig(title + '_predict.png')
+    plt.close('all')
+
 def model_regression(df, y_name, x_names):
     xs = jnp.array(df[x_names].values)
     y_obs = df[y_name].values   
@@ -146,6 +160,14 @@ def model_impute(data1, y_name, y_index, x_names, mapping, b_classify, y_obs=Non
     else:
         log_sigma = numpyro.sample('log_sigma', dist.Normal(0., 10.))
         numpyro.sample(y_name, dist.Normal(linear_predictor, jnp.exp(log_sigma)), obs=y_obs)
+
+def model_AR(y_obs, K, y_matrix):
+    b  = numpyro.sample('b', dist.Normal(0., 10.).expand([1+K]))
+    mus = y_matrix @ b[1:] + b[0]
+    b0 = jnp.array([b[0]])
+    mus = jnp.concatenate((b0, mus), axis=0)        
+    log_sigma = numpyro.sample('log_sigma', dist.Normal(0., 10.)) 
+    y_sample = numpyro.sample('obs', dist.Normal(mus, jnp.exp(log_sigma)), obs=y_obs)
         
 def fit_simple_regression_model_numpyro(df_data, y_name, x_names, x_lim=None, y_lim=None, y_mean_lim=None, b_show=True):
     mcmcs = []
@@ -263,7 +285,7 @@ def fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x
     print('df_data1.shape  =', df_data1.shape)
     print('df_data2.shape  =', df_data2.shape)
     
-    # perform inference
+    #Fit model
     title = get_title(participant, df_data1, df_data2, y_name, x_names, b_classify)
     print('%s start fitting %s...\n' % (datetime.now(), title))
     mcmc = MCMC(NUTS(model_impute), num_warmup=500, num_samples=1000) 
@@ -274,7 +296,7 @@ def fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x
     samples = mcmc.get_samples()
     save_build_time(title, start_time)
 
-    # posterior predictive distribution
+    #Posterior predictive distribution
     y_pred = Predictive(model_impute, samples)(random.PRNGKey(1), data1=data1, y_name=y_name, y_index=y_index,
                                                x_names=x_names, mapping=mapping, b_classify=b_classify)[y_name]
     if b_classify:
@@ -292,6 +314,63 @@ def fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x
         if (not b_standardize):
             plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_names[0], y_lim, b_show)            
     print('\n\n')
+    return samples
+
+def get_AR_predictions(y_obs, y_test, parameters, window):
+    history = y_obs[len(y_obs)-window:]
+    history = [history[i] for i in range(len(history))]
+    predictions = []
+    for t in range(len(y_test)):
+        n_hist = len(history)
+        lags = [history[i] for i in range(n_hist-window, n_hist)]
+        y_predict = parameters[0]
+        for d in range(window):
+            y_predict += parameters[d+1] * lags[window-d-1]
+        obs = y_test[t]
+        predictions.append(y_predict)
+        history.append(obs)
+    return predictions
+    
+def fit_AR_model(df_data, length, n_forecast, window, K, b_show):
+    start_AR_mcmc = timeit.default_timer()
+    df_data = df_data[:length]
+    y_data = df_data[y_name].values
+    y_obs, y_test = y_data[1:len(y_data)-n_forecast+1], y_data[len(y_data)-n_forecast:]
+
+    #Fit model
+    title = y_name + ' (AR' + str(K) + ' N=' + str(y_obs.shape[0]) + ')'
+    print('\n%s, start fitting %s...' % (datetime.now(), title)) 
+    y_matrix = jnp.zeros(shape=(len(y_obs)-1, K))
+    for p in range(1,K+1):
+        values = [y_obs[t-p] if (t >= p) else 0 for t in range(1, len(y_obs))]
+        y_matrix = ops.index_update(y_matrix, ops.index[:, p-1], values)          
+    rng_key = random.PRNGKey(0)
+    kernel = NUTS(model_AR)    
+    mcmc = MCMC(kernel, num_warmup=500, num_samples=1000, num_chains=1)
+    mcmc.run(rng_key, y_obs=y_obs, K=K, y_matrix=y_matrix)
+
+    #Display summary
+    print('\nsummary for %s =' % title)
+    mcmc.print_summary()  
+    samples = mcmc.get_samples()
+    samples['sigma'] = jnp.exp(samples['log_sigma'])    
+    ss = samples['sigma']
+    print('sigma mean = %.2f\tstd = %.2f\tmedian = %.2f\tQ5%% = %.2f\tQ95%% = %.2f' % (
+          np.mean(ss), np.std(ss), np.median(ss), np.quantile(ss, 0.05, axis=0), np.quantile(ss, 0.95, axis=0)))
+    parameter_means = []
+    for k,v in samples.items():
+        if k.find('b') >= 0:
+            for p in range(K+1):
+                mean_values = (float)(v[:,p].mean())
+                #print('%s[%d] -> %s -> %s\t-> %s' % (k, p, v[:,p].shape, mean_values, v[:,p][:3]))
+                parameter_means.append(mean_values)
+    y_pred = get_AR_predictions(y_obs, y_test, parameter_means, window)
+    print('test mean squared error =', round(sm.mean_squared_error(y_test, y_pred),  2))
+    save_build_time(title, start_AR_mcmc)
+    
+    # plot
+    plot_data_AR(title, y_test, y_pred, n_forecast, b_show)
+    print('\n')
     return samples
 
 if __name__ == '__main__':
@@ -326,6 +405,8 @@ if __name__ == '__main__':
         pd.DataFrame.from_dict(data=build_time, orient='index').to_csv('build_time_numpyro.csv', header=False)
         '''
 
+        '''
+        #Analysis using fit with missing data
         filename = 'build_time_numpyro_impute.csv'
         participants = [105]  # tested [105, 69, 80]
         for participant in participants:
@@ -370,6 +451,31 @@ if __name__ == '__main__':
                 samples = fit_with_missing_data(participant, length, b_classify, df_data1, df_data2, x_names, y_name,
                                                 y_lim, b_summary, b_show)
                 pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
-     
+        '''
+        
+        #Analysis using AR model
+        duration_filename = 'build_time_numpyro_AR.csv'
+        #data_filename = 'df_105_fitbit_per_minute.csv'
+        data_filename = 'fitbit_per_minute.csv'        
+        df_data = build_df(data_filename, b_set_index=False, b_drop=False)
+        df_data = df_data.rename(columns={'date' : 'Date'})
+        y_name  = 'steps' # 'heart_rate'  # 'steps'
+        K = 10
+        window = K
+        n_forecast = 200
+        print('columns =', list(df_data.columns))
+        print('na =\n', pd.isna(df_data).sum())
+        print('original shape =', df_data.shape)
+        print('K =', K)
+        print('window   =', window)
+        print('forecast =', n_forecast)
+        train_lengths = [50000] # tested [5000, 50000, 100000, 1000000...]
+        for train_length in train_lengths:
+            length = train_length + n_forecast
+            df_data = df_data.dropna()
+            df_data = df_data[['Date', 'steps', 'heart_rate']]        
+            samples = fit_AR_model(df_data, length, n_forecast, window, K, b_show)
+            pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(duration_filename, header=False)
+                
     print('finished!')
 
