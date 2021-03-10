@@ -152,7 +152,7 @@ def model_impute(data1, df_data2, y_name, y_index, x_names, mapping, b_fill_dail
     bias = numpyro.sample('intercept', dist.Normal(0, 10))
     linear_predictor = bias
     for x_name in x_names:
-        if b_fill_daily == False:
+        if not b_fill_daily:
             x_values = df_data2[x_name].values            
             isnan = np.isnan(x_values)
             x_nan_indices = np.nonzero(isnan)[0]
@@ -440,7 +440,7 @@ if __name__ == '__main__':
             #Inference with missing data
             #Set b_fill_daily to True:  impute daily before inference
             #Set b_fill_daily to False: impute while performing inference
-            b_fill_daily_list = ['True', 'False']
+            b_fill_daily_list = [True, False]
             for b_fill_daily in b_fill_daily_list:
                 print('b_fill_daily (forward fill before inference) =', b_fill_daily)
                 b_summary = b_fill_daily
