@@ -88,7 +88,7 @@ def plot_data_regression_lines(samples, title, df, x_name, y_name, x_lim=None, y
         plt.savefig(title + '_regression.png')
     plt.close('all')
 
-def plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_name, y_lim=None, b_show=True):
+def plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_name, x_lim=None, y_lim=None, b_show=True):
     confidence = 0.95
     posterior_mu = jnp.expand_dims(samples['intercept'], -1)
     posterior_mu += jnp.expand_dims(samples['b_'+x_name], -1) * df_data2[x_name].values
@@ -106,9 +106,13 @@ def plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_name, 
     plt.fill_between(xs, hpdis[0], hpdis[1], alpha=0.25, color="blue", label=label)
     plt.xlabel(x_name)
     plt.ylabel(y_name)
+    if x_lim == None:
+        x_lim = (0,6)
+    plt.xlim(x_lim)
     if y_lim != None:
         plt.ylim(y_lim)
-    plt.title(title)
+    plot_title = "\n".join(wrap(title, 80))
+    plt.title(plot_title)
     plt.legend(loc=2)
     if b_show:
         plt.show()
@@ -153,12 +157,12 @@ def model_impute(data1, df_data2, y_name, y_index, x_names, mapping, b_fill_dail
             isnan = np.isnan(x_values)
             x_nan_indices = np.nonzero(isnan)[0]
             if len(x_nan_indices) > 0:        
-                x_mu     = numpyro.sample(x_name+'_mu',     dist.Normal(0, 10).expand([1]))
-                x_sigma  = numpyro.sample(x_name+'_sigma',  dist.Normal(0, 10).expand([1]))
+                x_mu = numpyro.sample(x_name+'_mu',     dist.Normal(0, 10).expand([1]))
+                x_log_sigma = numpyro.sample(x_name+'_log_sigma',  dist.Normal(0, 10).expand([1]))
                 x_impute = numpyro.sample(x_name+'_impute', dist.Normal(x_mu[x_nan_indices],
-                                          x_sigma[x_nan_indices]).mask(False))            
+                                          jnp.exp(x_log_sigma[x_nan_indices])).mask(False))            
                 x_values = ops.index_update(x_values, x_nan_indices, x_impute)
-                numpyro.sample(x_name, dist.Normal(x_mu, x_sigma), obs=x_values)
+                numpyro.sample(x_name, dist.Normal(x_mu, jnp.exp(x_log_sigma)), obs=x_values)
                 df_data2[x_name] = x_values
                 mapping[x_name] = df_data2[x_name].to_dict()
         x_values = jnp.array([mapping[x_name][i] for i in list(data1[y_index])])               
@@ -324,7 +328,8 @@ def fit_with_missing_data(participant, length, b_fill_daily, b_classify, df_data
         print('mean squared error  =', round(sm.mean_squared_error(y_obs,  y_pred),  2))  
         print('R2 score =', round(sm.r2_score(y_obs, y_pred), 2))
         if (not b_standardize):
-            plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_names[0], y_lim, b_show)            
+            x_lim = None
+            plot_data_regression_ci(title, samples, df_data1, df_data2, y_name, x_names[0], x_lim, y_lim, b_show)            
     print('\n\n')
     return samples
 
@@ -435,36 +440,35 @@ if __name__ == '__main__':
             #Inference with missing data
             #Set b_fill_daily to True:  impute daily before inference
             #Set b_fill_daily to False: impute while performing inference
-            b_fill_daily  = False
-            print('b_fill_daily (forward fill before inference) =', b_fill_daily)
-            b_summary = b_fill_daily
-            x_names = ['Committed', 'Busy', 'Rested']
-            y_name  = 'steps'
-            y_lim = None
-            #if b_fill_minute:
-            #    chosen_df3b = map_to_daily_mood(chosen_df3b, x_names)
-            chosen_df3a = chosen_df3a.dropna(subset=[y_name])
-            for col in list(chosen_df3b.columns):
-                print('nan', chosen_df3b[col].isna().sum(), '\t->', col)
-            print()
-            lengths = [1000] # [100000, 150000, 300000]
-            for length in lengths:
-                df_data1 = chosen_df3a.copy()   # fitbit
-                df_data2 = chosen_df3b.copy()   # mood
+            b_fill_daily_list = ['True', 'False']
+            for b_fill_daily in b_fill_daily_list:
+                print('b_fill_daily (forward fill before inference) =', b_fill_daily)
+                b_summary = b_fill_daily
+                x_names = ['Committed', 'Busy', 'Rested']
+                y_name  = 'steps'
+                y_lim = None
+                chosen_df3a = chosen_df3a.dropna(subset=[y_name])
+                for col in list(chosen_df3b.columns):
+                    print('nan', chosen_df3b[col].isna().sum(), '\t->', col)
+                print()
+                lengths = [1000] # [100000, 150000, 300000]
+                for length in lengths:
+                    df_data1 = chosen_df3a.copy()   # fitbit
+                    df_data2 = chosen_df3b.copy()   # mood
 
-                #Perform regression            
-                b_classify = False
-                samples = fit_with_missing_data(participant, length, b_fill_daily, b_classify, df_data1, df_data2,
-                                                x_names, y_name, y_lim, b_summary, b_show)
-                pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
-                
-                #Perform logistic regression
-                b_classify = True
-                if b_classify == True: #Convert steps to binary: 1 if steps > 0, else 0
-                    df_data1[y_name] = df_data1[y_name].apply(lambda x: 1 if x > 0 else 0)
-                samples = fit_with_missing_data(participant, length, b_fill_daily, b_classify, df_data1, df_data2,
-                                                x_names, y_name, y_lim, b_summary, b_show)
-                pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
+                    #Perform regression            
+                    b_classify = False
+                    samples = fit_with_missing_data(participant, length, b_fill_daily, b_classify, df_data1, df_data2,
+                                                    x_names, y_name, y_lim, b_summary, b_show=b_show)
+                    pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
+                    
+                    #Perform logistic regression
+                    b_classify = True
+                    if b_classify == True: #Convert steps to binary: 1 if steps > 0, else 0
+                        df_data1[y_name] = df_data1[y_name].apply(lambda x: 1 if x > 0 else 0)
+                    samples = fit_with_missing_data(participant, length, b_fill_daily, b_classify, df_data1, df_data2,
+                                                    x_names, y_name, y_lim, b_summary, b_show=b_show)
+                    pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(filename, header=False)
         '''
 
         #'''
@@ -491,6 +495,6 @@ if __name__ == '__main__':
             df_data = df_data[['Date', 'steps', 'heart_rate']]        
             samples = fit_AR_model(df_data, length, n_forecast, window, K, b_show)
             pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(duration_filename, header=False)
-       #'''         
+        #'''         
     print('finished!')
 
