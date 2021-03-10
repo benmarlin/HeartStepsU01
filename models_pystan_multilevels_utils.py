@@ -6,9 +6,19 @@ import pystan
 import os.path
 from os import path
 import pickle
+import collections
+import timeit
 
+build_time = collections.defaultdict(list)
+def save_build_time(title, start_time):
+    duration_filename = 'build_time_pystan_multilevel.csv'
+    duration = (int)(timeit.default_timer() - start_time)
+    print('duration =', duration, 'seconds')
+    build_time[title].append(duration)
+    pd.DataFrame.from_dict(data=build_time, orient='index').to_csv(duration_filename, header=False)
+    
 def load_model(model_name, model_code, b_load_existing):    
-    pickle_name = model_name + '.pkl'
+    pickle_name = model_name.replace(' ','_') + '.pkl'
     pickle_name = os.path.join('models/', pickle_name)                     
     b_exist = path.exists(pickle_name)
     if not b_exist:
@@ -45,7 +55,8 @@ if __name__ == '__main__':
     np.random.seed(0)
     figsize = (5,4)
     figsize_compare = (8,8)
-    plot_alpha = 0.5    
+    plot_alpha = 0.5
+    b_load_existing = True
     n_chains = 1
     n_iters  = 1000
     length_per_group = 500
@@ -98,6 +109,8 @@ if __name__ == '__main__':
     plt.tight_layout()
 
     #--------------------------------------------------------------
+    title = 'pooled'
+    start_time_pooled_model = timeit.default_timer()
     
     pooled_model = """
     data {
@@ -119,9 +132,10 @@ if __name__ == '__main__':
                         'x': x_values,
                         'y': log_steps}
 
-    stan_model = load_model('pooled', model_code=pooled_model, b_load_existing=True)  
+    stan_model = load_model(title, pooled_model, b_load_existing)  
     pooled_fit = stan_model.sampling(data=pooled_data_dict, iter=n_iters, chains=n_chains)
     print_summary(pooled_fit)
+    save_build_time(title, start_time_pooled_model)
     pooled_sample = extract_posterior(pooled_fit)
     b0, b1 = pooled_sample['b'].T.mean(1)
     print('b0 =', b0)
@@ -139,7 +153,9 @@ if __name__ == '__main__':
     print('\n\n\n')
         
     #--------------------------------------------------------------
-
+    title = 'unpooled'
+    start_time_unpooled_model = timeit.default_timer()
+    
     unpooled_model = """
     data {
       int<lower=0> N; 
@@ -168,9 +184,10 @@ if __name__ == '__main__':
                           'x': x_values,
                           'y': log_steps}
 
-    stan_model = load_model('unpooled', model_code=unpooled_model, b_load_existing=True)
+    stan_model = load_model(title, unpooled_model, b_load_existing)
     unpooled_fit = stan_model.sampling(data=unpooled_data_dict, iter=n_iters, chains=n_chains)
     print_summary(unpooled_fit)
+    save_build_time(title, start_time_unpooled_model)
     unpooled_sample = extract_posterior(unpooled_fit)    
     unpooled_estimates = pd.Series(unpooled_fit['a'].mean(0), index=unique_subject_ids)
     
@@ -195,8 +212,10 @@ if __name__ == '__main__':
     print('\n\n\n')
     
     #-----------------------------------------------
-        
-    partial_pooling = """
+    title = 'partial pooled'
+    start_time_partial_pooled_model = timeit.default_timer()
+
+    partial_pooled_model = """
     data {
       int<lower=0> N; 
       int subject_id[N];
@@ -225,15 +244,18 @@ if __name__ == '__main__':
                               'subject_id': subject_id+1,
                               'y': log_steps}
 
-    stan_model = load_model('partial_pooled', model_code=partial_pooling, b_load_existing=True)
+    stan_model = load_model(title, partial_pooled_model, b_load_existing)
     partial_pool_fit = stan_model.sampling(data=partial_pool_data_dict, iter=n_iters, chains=n_chains)
     print_summary(partial_pool_fit)
+    save_build_time(title, start_time_partial_pooled_model)
     partial_sample = extract_posterior(partial_pool_fit)    
     print('\n\n\n')
 
     #-----------------------------------------------
+    title = 'varying intercept'
+    start_time_varying_intercept_model = timeit.default_timer()
 
-    varying_intercept_code = """
+    varying_intercept_model = """
     data {
       int<lower=0> J; 
       int<lower=0> N; 
@@ -270,9 +292,10 @@ if __name__ == '__main__':
                                   'x': x_values,
                                   'y': log_steps}
 
-    stan_model = load_model('varying_intercept', model_code=varying_intercept_code, b_load_existing=True)  
+    stan_model = load_model(title, varying_intercept_model, b_load_existing)  
     varying_intercept_fit = stan_model.sampling(data=varying_intercept_data_dict, iter=n_iters, chains=n_chains)
     print_summary(varying_intercept_fit)
+    save_build_time(title, start_time_varying_intercept_model)
     varying_intercept_samples = extract_posterior(varying_intercept_fit)
 
     plt.figure(figsize=figsize)
@@ -313,8 +336,10 @@ if __name__ == '__main__':
     print('\n\n\n')
 
     #-----------------------------------------------
-
-    varying_slope_mode = """
+    title = 'varying slope'
+    start_time_varying_slope_model = timeit.default_timer()
+  
+    varying_slope_model = """
     data {
       int<lower=0> J; 
       int<lower=0> N; 
@@ -350,9 +375,10 @@ if __name__ == '__main__':
                               'x': x_values,
                               'y': log_steps}
 
-    stan_model = load_model('varying_slope', model_code=varying_slope_mode, b_load_existing=True)  
+    stan_model = load_model(title, varying_slope_model, b_load_existing)  
     varying_slope_fit = stan_model.sampling(data=varying_slope_data_dict, iter=n_iters, chains=n_chains)
     print_summary(varying_slope_fit)
+    save_build_time(title, start_time_varying_slope_model)
     varying_slope_samples = extract_posterior(varying_slope_fit)
 
     plt.figure(figsize=figsize)
@@ -368,7 +394,9 @@ if __name__ == '__main__':
     print('\n\n\n')
 
     #-----------------------------------------------
-
+    title = 'varying intercept slope'
+    start_time_varying_intercept_slope_model = timeit.default_timer()
+    
     varying_intercept_slope_model = """
     data {
       int<lower=0> N;
@@ -403,9 +431,10 @@ if __name__ == '__main__':
                               'x': x_values,
                               'y': log_steps}
 
-    stan_model = load_model('varying_intercept_slope', model_code=varying_intercept_slope_model, b_load_existing=True)  
+    stan_model = load_model(title, varying_intercept_slope_model, b_load_existing)  
     varying_intercept_slope_fit = stan_model.sampling(data=varying_intercept_slope_data_dict, iter=n_iters, chains=n_chains)
     print_summary(varying_intercept_slope_fit)
+    save_build_time(title, start_time_varying_intercept_slope_model)
     varying_intercept_slope_samples = extract_posterior(varying_intercept_slope_fit)
 
     plt.figure(figsize=figsize)
