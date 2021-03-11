@@ -1,32 +1,10 @@
 import pandas as pd
 import numpy as np
 import sys, getopt
+import os
+from os import path
 
-def main(argv):
-
-    #For example, run the following command:
-    #python baseline_utils.py -d HeartSteps-BaselineSurvey_DataDictionary_2021-01-22.csv -f HeartSteps-BaselineSurvey_DATA_2021-01-27_1340.csv
-    
-    try:
-        opts, args = getopt.getopt(argv,"d:f:",["data_dictionary=","data="])
-    except getopt.GetoptError:
-        print("baseline_utils.py -d <data_dictionary_filename> -f <data_filename>")
-        sys.exit(2)
-
-    data_dictionary_filename = ''
-    data_filename = '' 
-    for opt, arg in opts:
-        if opt in ["-d", "--data_dictionary"]:
-            data_dictionary_filename = arg
-        elif opt in ["-f", "--data"]:
-            data_filename = arg
-
-    if data_dictionary_filename == '' or data_filename == '':
-        print("baseline_utils.py -d <data_dictionary_filename> -f <data_filename>")
-        sys.exit()        
-
-    print('input dd    =', data_dictionary_filename)
-    print('input df    =', data_filename)    
+def process_baseline_survey(data_dictionary_filename, data_filename, output_folder):
 
     #--------------------------------------------------------------------------------
     #Process data dictionary for U01DataDictionaries
@@ -155,8 +133,10 @@ def main(argv):
     
     output_data_dictionary = 'baseline-survey.csv'
     output_data = 'baseline-survey-data.csv'
-    dd.to_csv(output_data_dictionary, index=False)
-    df.to_csv(output_data, index=False)
+    output_data_dictionary_path = os.path.join(output_folder, output_data_dictionary)
+    output_data_path = os.path.join(output_folder, output_data)
+    dd.to_csv(output_data_dictionary_path, index=False)
+    df.to_csv(output_data_path, index=False)
 
     print('dd shape    =', dd.shape)
     print('df shape    =', df.shape)
@@ -201,7 +181,8 @@ def main(argv):
     scores = pd.DataFrame(scores).set_index(df['study_id'])
 
     tipi_scores_filename = 'baseline-survey-tipi.csv'
-    scores.to_csv(tipi_scores_filename)
+    tipi_scores_path = os.path.join(output_folder, tipi_scores_filename)
+    scores.to_csv(tipi_scores_path)
     print('TIPI scores =', tipi_scores_filename)
 
 
@@ -244,8 +225,47 @@ def main(argv):
     scores = pd.DataFrame(scores).set_index(df['study_id'])
 
     motivation_scores_filename = 'baseline-survey-motivation.csv'
-    scores.to_csv(motivation_scores_filename)
+    motivation_scores_path = os.path.join(output_folder, motivation_scores_filename)
+    scores.to_csv(motivation_scores_path)
     print('Motivation scores =', motivation_scores_filename)    
+
+
+def main(argv):
+
+    #For example, run the following command:
+    #python baseline_utils.py -d "HeartSteps-BaselineSurvey_DataDictionary_2021-01-22.csv" -f "HeartSteps-BaselineSurvey_DATA_2021-01-27_1340.csv" -o ""
+
+    instructions = "baseline_utils.py -d <data_dictionary_filename> -f <data_filename> -o <output_folder>"
+    try:
+        opts, args = getopt.getopt(argv,"d:f:o:",["data_dictionary=","data=","output_folder="])
+    except getopt.GetoptError:
+        print(instructions)
+        sys.exit(2)
+
+    data_dictionary_filename = ''
+    data_filename = '' 
+    for opt, arg in opts:
+        if opt in ["-d", "--data_dictionary"]:
+            data_dictionary_filename = arg
+        elif opt in ["-f", "--data"]:
+            data_filename = arg
+        elif opt in ["-o", "--output_folder"]:
+            output_folder = arg
+
+    if data_dictionary_filename == '' or data_filename == '':
+        print(instructions)
+        sys.exit()
+
+    if output_folder != '' and not os.path.exists(output_folder):
+        print(output_folder, 'folder does not exist!')
+        print(instructions)
+        sys.exit()
+
+    print('input dd    =', data_dictionary_filename)
+    print('input df    =', data_filename)
+    print('output dir  =', output_folder)
+    
+    process_baseline_survey(data_dictionary_filename, data_filename, output_folder)
 
 if __name__ == '__main__':    
      main(sys.argv[1:])
