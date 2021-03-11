@@ -6,6 +6,10 @@ from os import path
 
 def process_baseline_survey(data_dictionary_filename, data_filename, output_folder):
 
+    print('input dd    =', data_dictionary_filename)
+    print('input df    =', data_filename)
+    print('output dir  =', output_folder)
+
     #--------------------------------------------------------------------------------
     #Process data dictionary for U01DataDictionaries
     
@@ -260,10 +264,6 @@ def main(argv):
         print(output_folder, 'folder does not exist!')
         print(instructions)
         sys.exit()
-
-    print('input dd    =', data_dictionary_filename)
-    print('input df    =', data_filename)
-    print('output dir  =', output_folder)
     
     process_baseline_survey(data_dictionary_filename, data_filename, output_folder)
 
