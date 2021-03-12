@@ -81,6 +81,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                     #Shorten xlabels if they are too long
                     max_length_limit = 15
                     current_max_length = max([len(str(value)) for value in df[field].values])
+                    table = df[field].value_counts()
                     if current_max_length > max_length_limit:
                         this_ax = shorten_xlabels(this_ax, table, max_length_limit)
             i=i+1
