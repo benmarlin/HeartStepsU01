@@ -17,6 +17,7 @@ from scipy.stats import pearsonr
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 
 from . import data_utils
@@ -42,6 +43,8 @@ def process_daily_metrics(df):
     return df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
 
 def process_previous_fitbit_data(df):
+    import warnings
+    warnings.filterwarnings('ignore')
     df['Previous Count'] = df['Fitbit Step Count'].shift()
     df['Previous Worn']  = df['Fitbit Minutes Worn'].shift()
     df.loc[df.groupby('Subject ID')['Previous Count'].head(1).index, 'Previous Count'] = 0
@@ -52,6 +55,32 @@ def process_fitbit_minute(df):
     df = df.rename(columns={"datetime": "Date"})
     df = df.drop(columns=['fitbit_account', 'username', 'date'])
     return df
+
+def process_activity_logs(df):
+    return df[['Activity Type Title', 'Start Time']]
+
+def get_score_mapping(df_score):
+    df_score = df_score.rename(columns={'study_id':'Subject ID'})
+    score_mapping = {}
+    for score_name in list(df_score.columns):
+        if score_name != 'Subject ID':
+            score_mapping[score_name] = {}
+            for i, subject_id in enumerate(df_score['Subject ID'].values):
+                score_mapping[score_name][str(subject_id)] = df_score[score_name][i]
+    return score_mapping
+
+def combine_with_score(df1, df_score, b_display_mapping=False):
+    score_mapping = get_score_mapping(df_score)
+    if b_display_mapping:
+        for k,v in score_mapping.items():
+            print(k, '->', v, '\n')
+    df_combined = df1.copy()
+    df_combined = df_combined.reset_index()
+    for score_name in score_mapping:
+        participants = list(score_mapping[score_name].keys())
+        df_combined[score_name] = df_combined['Subject ID'].map(lambda x: score_mapping[score_name][str(x)] if str(x) in participants else np.NaN)
+    df_combined = df_combined.set_index(['Subject ID','Date'])
+    return df_combined
 
 def concatenate_mood_fitbit_minute(df1, df_fitbit, participant):
     #Concatenate df1, df_fitbit using outer join by 'Date'
@@ -252,6 +281,7 @@ def get_correlations(df):
         figsize = (10,9)
     plt.figure(figsize=figsize)
     sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+    plt.show()
 
 def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
@@ -551,4 +581,31 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     plt.xlim(x_lim[0], x_lim[1])
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     plt.legend(loc=2, fontsize=8)
+
+def get_available_data(tH, tD, df):
+    df_all = df.copy()
+    df_days=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD],
+                         columns=["tH=%d"%x for x in tH])
+    df_participants=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD], 
+                                 columns=["tH=%d"%x for x in tH])
+    participants = list(set([p for (p, date) in df_all.index.values]))    
+    for td in tD:
+        for th in tH:
+            key = 'worn>'+str(th)    
+            df_all[key] = df_all['Fitbit Minutes Worn'][df_all['Fitbit Minutes Worn'] > 60*th]
+            group = df_all.groupby(by='Subject ID')
+            count = 0
+            count_days = 0
+            count_participants = 0
+            for participant in participants:
+                df_individual = group.get_group(participant)
+                count_nan = df_individual[key].isna().sum()              
+                df_individual = df_individual.dropna()
+                count = df_individual[key].shape[0]
+                if count > td:
+                    count_days += count
+                    count_participants += 1
+            df_days.loc['tD='+str(td), 'tH='+str(th)] = int(count_days)
+            df_participants.loc['tD='+str(td), 'tH='+str(th)] = int(count_participants)
+    return df_days.astype(int), df_participants.astype(int)
 
