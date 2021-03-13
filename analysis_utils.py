@@ -589,19 +589,18 @@ def get_available_data(tH, tD, df):
     df_participants=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD], 
                                  columns=["tH=%d"%x for x in tH])
     participants = list(set([p for (p, date) in df_all.index.values]))    
-    for td in tD:
-        for th in tH:
-            key = 'worn>'+str(th)    
-            df_all[key] = df_all['Fitbit Minutes Worn'][df_all['Fitbit Minutes Worn'] > 60*th]
-            group = df_all.groupby(by='Subject ID')
+    for th in tH:
+        key = 'worn>'+str(th)    
+        df_all[key] = df_all['Fitbit Minutes Worn'][df_all['Fitbit Minutes Worn'] > 60*th]
+        group = df_all.groupby(by='Subject ID')      
+        for td in tD:           
             count = 0
             count_days = 0
             count_participants = 0
             for participant in participants:
-                df_individual = group.get_group(participant)
-                count_nan = df_individual[key].isna().sum()              
+                df_individual = group.get_group(participant)        
                 df_individual = df_individual.dropna()
-                count = df_individual[key].shape[0]
+                count = df_individual[key].shape[0]                
                 if count > td:
                     count_days += count
                     count_participants += 1
