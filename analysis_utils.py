@@ -276,9 +276,9 @@ def compute_VAR(df, names, max_lag):
 def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
     df_correlations = df.corr()
-    figsize = (9,8)
+    figsize = (8,7)
     if df.shape[1] > 12:
-        figsize = (10,9)
+        figsize = (11,9)
     plt.figure(figsize=figsize)
     sn.heatmap(df_correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
     plt.show()
@@ -309,10 +309,25 @@ def get_correlations_average_within_participant(df, behaviors, activities, b_plo
         averages = np.nanmean(np.array(activity_averages), axis=0)
         df_correlation_averages[activity] = np.nanmean(np.array(activity_averages), axis=0)
     if b_plot:
-        plt.figure(figsize=(3,8))
+        plt.figure(figsize=(2,9))
         sn.heatmap(df_correlation_averages, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
         plt.show()
     return df_correlation_averages
+
+def get_data_yields(df, td, th, behaviors, yields):
+    columns = list(df.columns)
+    valid_columns = []
+    for col in columns:
+        if (col in yields) or (col in behaviors):
+            valid_columns.append(col)    
+    df_yields=pd.DataFrame(np.zeros((len(valid_columns),len(yields))), index=valid_columns, columns=yields)
+    for behavior in behaviors:
+        if behavior in df:
+            df_behavior = df[['Fitbit Step Count', 'Fitbit Minutes Worn', behavior]]            
+            table_days, table_participants, _ = get_available_data([td], [th], df_behavior)
+            df_yields.loc[behavior,yields[0]] = table_participants.values[0][0]
+            df_yields.loc[behavior,yields[1]] = table_days.values[0][0]
+    return df_yields.astype(int)
 
 def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
@@ -613,7 +628,7 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     plt.legend(loc=2, fontsize=8)
 
-def get_available_data(tD, tH, df):
+def get_available_data(tD, tH, df): 
     df_days=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD],
                          columns=["tH=%d"%x for x in tH])
     df_participants=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD], 
