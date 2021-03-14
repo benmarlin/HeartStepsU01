@@ -76,6 +76,7 @@ def process_activity_logs(df, column_names=None):
         df_individual = df_individual.resample('D').sum().fillna(0)
         df_individual = df_individual.reset_index()
         df_individual['Subject ID'] = participant
+        df_individual['Date'] = df_individual['Date'].astype(str)
         df_individual = df_individual.set_index(indices)
         frames.append(df_individual)
     df = pd.concat(frames)
