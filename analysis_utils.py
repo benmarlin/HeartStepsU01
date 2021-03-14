@@ -275,13 +275,44 @@ def compute_VAR(df, names, max_lag):
 
 def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
-    correlations = df.corr()
+    df_correlations = df.corr()
     figsize = (9,8)
     if df.shape[1] > 12:
         figsize = (10,9)
     plt.figure(figsize=figsize)
-    sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+    sn.heatmap(df_correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
     plt.show()
+    return df_correlations
+
+def get_correlations_average_within_participant(df, behaviors, activities, b_plot=False):
+    df = df.replace({True: 1, False: 0})
+    participants = list(set([p for (p, date) in df.index.values]))
+    df=df.rename(columns={'Fitbit Step Count' : 'Daily Steps', 'Fitbit Minutes Worn' : 'Minutes of Activity'})
+    columns = list(df.columns)
+    valid_columns = []
+    for col in columns:
+        if (col in activities) or (col in behaviors):
+            valid_columns.append(col)     
+    df = df[valid_columns]   
+    df_correlation_averages=pd.DataFrame(np.zeros((len(valid_columns),len(activities))), index=valid_columns, columns=activities)
+    correlations_dict = {}
+    group = df.groupby(by='Subject ID')
+    for participant in participants:
+        df_individual = group.get_group(participant)
+        df_correlations = df_individual.corr()
+        correlations_dict[participant] = df_correlations        
+    for activity in activities:
+        activity_averages = []
+        for k, df_corr in correlations_dict.items():
+            activity_averages.append(df_corr[activity])
+        activity_averages = np.array(activity_averages)
+        averages = np.nanmean(np.array(activity_averages), axis=0)
+        df_correlation_averages[activity] = np.nanmean(np.array(activity_averages), axis=0)
+    if b_plot:
+        plt.figure(figsize=(3,8))
+        sn.heatmap(df_correlation_averages, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+        plt.show()
+    return df_correlation_averages
 
 def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
@@ -582,29 +613,37 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     plt.legend(loc=2, fontsize=8)
 
-def get_available_data(tH, tD, df):
-    df_all = df.copy()
+def get_available_data(tD, tH, df):
     df_days=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD],
                          columns=["tH=%d"%x for x in tH])
     df_participants=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD], 
                                  columns=["tH=%d"%x for x in tH])
-    participants = list(set([p for (p, date) in df_all.index.values]))    
+    participants = list(set([p for (p, date) in df.index.values]))
+    available_dict = {}
     for th in tH:
-        key = 'worn>'+str(th)    
+        key = 'worn>'+str(th)
+        df_all = df.copy()
         df_all[key] = df_all['Fitbit Minutes Worn'][df_all['Fitbit Minutes Worn'] > 60*th]
         group = df_all.groupby(by='Subject ID')      
         for td in tD:           
             count = 0
             count_days = 0
             count_participants = 0
+            valid_participants = []
             for participant in participants:
-                df_individual = group.get_group(participant)        
+                df_individual = group.get_group(participant)
                 df_individual = df_individual.dropna()
                 count = df_individual[key].shape[0]                
                 if count > td:
                     count_days += count
                     count_participants += 1
+                    valid_participants.append(participant)
             df_days.loc['tD='+str(td), 'tH='+str(th)] = int(count_days)
             df_participants.loc['tD='+str(td), 'tH='+str(th)] = int(count_participants)
-    return df_days.astype(int), df_participants.astype(int)
+            index_names = df_all.index.names
+            df_all = df_all.reset_index()
+            df_all = df_all[df_all['Subject ID'].isin(valid_participants)]
+            df_all = df_all.set_index(index_names)
+            available_dict[(td, th)] = df_all.dropna()         
+    return df_days.astype(int), df_participants.astype(int), available_dict
 
