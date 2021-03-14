@@ -154,7 +154,9 @@ def crop_data(participants_df, df, b_display, b_crop_end=True):
                 frames.append(new_df)
             else:
                 if b_display:
-                    print('{:<3} missing intervention date'.format(p))
+                    status = participants_df.loc[p]["Participant Status"]
+                    if (status != 'withdrew') and (str(status).lower() != 'nan'): 
+                        print('{:<3} ({}) missing intervention start date'.format(p, status))
                 continue
     if len(frames) > 0:
         df = pd.concat(frames)
