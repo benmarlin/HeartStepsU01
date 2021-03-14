@@ -17,6 +17,7 @@ from scipy.stats import pearsonr
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score
+from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 
 from . import data_utils
@@ -42,6 +43,8 @@ def process_daily_metrics(df):
     return df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
 
 def process_previous_fitbit_data(df):
+    import warnings
+    warnings.filterwarnings('ignore')
     df['Previous Count'] = df['Fitbit Step Count'].shift()
     df['Previous Worn']  = df['Fitbit Minutes Worn'].shift()
     df.loc[df.groupby('Subject ID')['Previous Count'].head(1).index, 'Previous Count'] = 0
@@ -52,6 +55,57 @@ def process_fitbit_minute(df):
     df = df.rename(columns={"datetime": "Date"})
     df = df.drop(columns=['fitbit_account', 'username', 'date'])
     return df
+
+def process_activity_logs(df, column_names=None):
+    import warnings
+    warnings.filterwarnings('ignore')
+    if column_names == None:
+        df = df[['Activity Duration']]
+    else:
+        df = df[column_names]
+    participants = list(set([p for (p, date) in df.index.values]))
+    indices = df.index.names
+    #Remark: pandas.DataFrame.resample() only aggregates numeric types
+    df['Activity Duration'] = df['Activity Duration'].astype(int)
+    frames = []
+    for participant in participants:
+        df_individual = df.groupby(by='Subject ID').get_group(participant)        
+        df_individual = df_individual.reset_index()
+        df_individual['Date'] = pd.to_datetime(df_individual['Date'], format='%Y-%m-%d')
+        df_individual = df_individual.set_index('Date')        
+        df_individual = df_individual.resample('D').sum().fillna(0)
+        df_individual = df_individual.reset_index()
+        df_individual['Subject ID'] = participant
+        df_individual['Date'] = df_individual['Date'].astype(str)
+        df_individual = df_individual.set_index(indices)
+        frames.append(df_individual)
+    df = pd.concat(frames)
+    df = df.sort_index(level='Subject ID')
+    df.name = 'Activity Logs'
+    return df
+
+def get_score_mapping(df_score):
+    df_score = df_score.rename(columns={'study_id':'Subject ID'})
+    score_mapping = {}
+    for score_name in list(df_score.columns):
+        if score_name != 'Subject ID':
+            score_mapping[score_name] = {}
+            for i, subject_id in enumerate(df_score['Subject ID'].values):
+                score_mapping[score_name][str(subject_id)] = df_score[score_name][i]
+    return score_mapping
+
+def combine_with_score(df1, df_score, b_display_mapping=False):
+    score_mapping = get_score_mapping(df_score)
+    if b_display_mapping:
+        for k,v in score_mapping.items():
+            print(k, '->', v, '\n')
+    df_combined = df1.copy()
+    df_combined = df_combined.reset_index()
+    for score_name in score_mapping:
+        participants = list(score_mapping[score_name].keys())
+        df_combined[score_name] = df_combined['Subject ID'].map(lambda x: score_mapping[score_name][str(x)] if str(x) in participants else np.NaN)
+    df_combined = df_combined.set_index(['Subject ID','Date'])
+    return df_combined
 
 def concatenate_mood_fitbit_minute(df1, df_fitbit, participant):
     #Concatenate df1, df_fitbit using outer join by 'Date'
@@ -246,12 +300,60 @@ def compute_VAR(df, names, max_lag):
 
 def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
-    correlations = df.corr()
-    figsize = (9,8)
+    df_correlations = df.corr()
+    figsize = (8,7)
     if df.shape[1] > 12:
-        figsize = (10,9)
+        figsize = (11,9)
     plt.figure(figsize=figsize)
-    sn.heatmap(correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+    sn.heatmap(df_correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+    plt.show()
+    return df_correlations
+
+def get_correlations_average_within_participant(df, behaviors, activities, rename_dict=None, b_plot=False):
+    df = df.replace({True: 1, False: 0})
+    participants = list(set([p for (p, date) in df.index.values]))
+    if rename_dict != None:
+        df=df.rename(columns=rename_dict)
+    columns = list(df.columns)
+    valid_columns = []
+    for col in columns:
+        if (col in activities) or (col in behaviors):
+            valid_columns.append(col)     
+    df = df[valid_columns]   
+    df_correlation_averages=pd.DataFrame(np.zeros((len(valid_columns),len(activities))), index=valid_columns, columns=activities)
+    correlations_dict = {}
+    group = df.groupby(by='Subject ID')
+    for participant in participants:
+        df_individual = group.get_group(participant)
+        df_correlations = df_individual.corr()
+        correlations_dict[participant] = df_correlations        
+    for activity in activities:
+        activity_averages = []
+        for k, df_corr in correlations_dict.items():
+            activity_averages.append(df_corr[activity])
+        activity_averages = np.array(activity_averages)
+        averages = np.nanmean(np.array(activity_averages), axis=0)
+        df_correlation_averages[activity] = np.nanmean(np.array(activity_averages), axis=0)
+    if b_plot:
+        plt.figure(figsize=(2,9))
+        sn.heatmap(df_correlation_averages, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+        plt.show()
+    return df_correlation_averages
+
+def get_data_yields(df, td, th, behaviors, yields):
+    columns = list(df.columns)
+    valid_columns = []
+    for col in columns:
+        if (col in yields) or (col in behaviors):
+            valid_columns.append(col)    
+    df_yields=pd.DataFrame(np.zeros((len(valid_columns),len(yields))), index=valid_columns, columns=yields)
+    for behavior in behaviors:
+        if behavior in df:
+            df_behavior = df[['Fitbit Step Count', 'Fitbit Minutes Worn', behavior]]            
+            table_days, table_participants, _ = get_available_data([td], [th], df_behavior)
+            df_yields.loc[behavior,yields[0]] = table_participants.values[0][0]
+            df_yields.loc[behavior,yields[1]] = table_days.values[0][0]
+    return df_yields.astype(int)
 
 def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
@@ -551,4 +653,38 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     plt.xlim(x_lim[0], x_lim[1])
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     plt.legend(loc=2, fontsize=8)
+
+def get_available_data(tD, tH, df): 
+    df_days=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD],
+                         columns=["tH=%d"%x for x in tH])
+    df_participants=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD], 
+                                 columns=["tH=%d"%x for x in tH])
+    participants = list(set([p for (p, date) in df.index.values]))
+    available_dict = {}
+    for th in tH:
+        key = 'worn>'+str(th)
+        df_all = df.copy()
+        df_all[key] = df_all['Fitbit Minutes Worn'][df_all['Fitbit Minutes Worn'] > 60*th]
+        group = df_all.groupby(by='Subject ID')      
+        for td in tD:           
+            count = 0
+            count_days = 0
+            count_participants = 0
+            valid_participants = []
+            for participant in participants:
+                df_individual = group.get_group(participant)
+                df_individual = df_individual.dropna()
+                count = df_individual[key].shape[0]                
+                if count > td:
+                    count_days += count
+                    count_participants += 1
+                    valid_participants.append(participant)
+            df_days.loc['tD='+str(td), 'tH='+str(th)] = int(count_days)
+            df_participants.loc['tD='+str(td), 'tH='+str(th)] = int(count_participants)
+            index_names = df_all.index.names
+            df_all = df_all.reset_index()
+            df_all = df_all[df_all['Subject ID'].isin(valid_participants)]
+            df_all = df_all.set_index(index_names)
+            available_dict[(td, th)] = df_all.dropna()         
+    return df_days.astype(int), df_participants.astype(int), available_dict
 
