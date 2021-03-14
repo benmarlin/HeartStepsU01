@@ -69,7 +69,7 @@ def process_activity_logs(df, column_names=None):
     df['Activity Duration'] = df['Activity Duration'].astype(int)
     frames = []
     for participant in participants:
-        df_individual = df.groupby(by='Subject ID').get_group(participant)
+        df_individual = df.groupby(by='Subject ID').get_group(participant)        
         df_individual = df_individual.reset_index()
         df_individual['Date'] = pd.to_datetime(df_individual['Date'], format='%Y-%m-%d')
         df_individual = df_individual.set_index('Date')        
@@ -79,7 +79,7 @@ def process_activity_logs(df, column_names=None):
         df_individual = df_individual.set_index(indices)
         frames.append(df_individual)
     df = pd.concat(frames)
-    df.sort_index(level=0)   
+    df = df.sort_index(level='Subject ID')
     df.name = 'Activity Logs'
     return df
 
