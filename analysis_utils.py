@@ -56,32 +56,8 @@ def process_fitbit_minute(df):
     df = df.drop(columns=['fitbit_account', 'username', 'date'])
     return df
 
-def process_activity_logs(df, column_names=None):
-    import warnings
-    warnings.filterwarnings('ignore')
-    if column_names == None:
-        df = df[['Activity Duration']]
-    else:
-        df = df[column_names]
-    participants = list(set([p for (p, date) in df.index.values]))
-    indices = df.index.names
-    #Remark: pandas.DataFrame.resample() only aggregates numeric types
-    df['Activity Duration'] = df['Activity Duration'].astype(int)
-    frames = []
-    for participant in participants:
-        df_individual = df.groupby(by='Subject ID').get_group(participant)
-        df_individual = df_individual.reset_index()
-        df_individual['Date'] = pd.to_datetime(df_individual['Date'], format='%Y-%m-%d')
-        df_individual = df_individual.set_index('Date')        
-        df_individual = df_individual.resample('D').mean().fillna(0)
-        df_individual = df_individual.reset_index()
-        df_individual['Subject ID'] = participant
-        df_individual = df_individual.set_index(indices)
-        frames.append(df_individual)        
-    df = pd.concat(frames)
-    df.sort_index(level=0)   
-    df.name = 'Activity Logs'
-    return df
+def process_activity_logs(df):
+    return df[['Activity Type Title', 'Start Time']]
 
 def get_score_mapping(df_score):
     df_score = df_score.rename(columns={'study_id':'Subject ID'})
@@ -308,11 +284,10 @@ def get_correlations(df):
     plt.show()
     return df_correlations
 
-def get_correlations_average_within_participant(df, behaviors, activities, rename_dict=None, b_plot=False):
+def get_correlations_average_within_participant(df, behaviors, activities, b_plot=False):
     df = df.replace({True: 1, False: 0})
     participants = list(set([p for (p, date) in df.index.values]))
-    if rename_dict != None:
-        df=df.rename(columns=rename_dict)
+    df=df.rename(columns={'Fitbit Step Count' : 'Daily Steps', 'Fitbit Minutes Worn' : 'Minutes of Activity'})
     columns = list(df.columns)
     valid_columns = []
     for col in columns:
