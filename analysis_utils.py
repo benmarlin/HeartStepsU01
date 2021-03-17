@@ -23,20 +23,24 @@ from sklearn.impute import IterativeImputer, KNNImputer
 from . import data_utils
 
 
-def process_morning_survey(df):
+def process_morning_survey(df, b_intrinsic=True):
     #Get Mood categories and create new columns
     df['Mood'] = pd.Categorical(df['Mood'])
     df['Mood Code'] = df['Mood'].cat.codes
     categories = dict(enumerate(df['Mood'].cat.categories))
-
     for key, value in categories.items():
         df[value] = df['Mood Code'].apply(lambda x: True if x == key else False)
-
-    column_list = ['Busy', 'Committed', 'Rested']    
+        
+    column_list = ['Busy', 'Committed', 'Rested']     
     for key, value in categories.items():
         column_list.append(value)
     df_selected = df[column_list]
-
+    if b_intrinsic:
+        #Temporary fix for data export
+        df_selected["Extrinsic"] = [x if (str(x).lower() != 'nan') else df["Mm_Extrinsic_Motivation"].values[i]
+                                    for i, x in enumerate(df["Extrinsic"].values)]
+        df_selected["Intrinsic"] = [x if (str(x).lower() != 'nan') else df["Mm_Intrinsic_Motivation"].values[i]
+                                    for i, x in enumerate(df["Intrinsic"].values)]
     return df_selected
 
 def process_daily_metrics(df):
@@ -325,7 +329,7 @@ def get_correlations_average_within_participant(df, behaviors, activities, renam
     group = df.groupby(by='Subject ID')
     for participant in participants:
         df_individual = group.get_group(participant)
-        df_correlations = df_individual.corr()
+        df_correlations = df_individual.corr(method='pearson')
         correlations_dict[participant] = df_correlations        
     for activity in activities:
         activity_averages = []
