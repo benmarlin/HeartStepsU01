@@ -773,7 +773,7 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
                 plt.axvline(x=average_corr, color=color)
                 plt.xlim(-0.75,0.75)
                 if y_lim_hist == None:
-                    y_lim_hist = (0, int(0.65*td))
+                    y_lim_hist = (0,15)
                 plt.ylim(y_lim_hist)
                 plt.title(str(k) + '\nmean corr = '+ str(average_corr))
             count += 1
