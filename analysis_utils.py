@@ -765,15 +765,15 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
             subplot = count+1
             if subplot <= 24:
                 plt.subplot(6,4,subplot)
-                plt.hist(v, bins=16, color='blue', alpha=.5)
+                bins = np.linspace(-0.75, 0.75, 16)
+                plt.hist(v, bins=bins, color='blue', alpha=.5)
                 plt.axvline(x=0, ls=':', color='gray')
                 color='magenta'
                 if average_corr < 0:
                     color='green'
                 plt.axvline(x=average_corr, color=color)
-                plt.xlim(-0.75,0.75)
                 if y_lim_hist == None:
-                    y_lim_hist = (0,15)
+                    y_lim_hist = (0,18)
                 plt.ylim(y_lim_hist)
                 plt.title(str(k) + '\nmean corr = '+ str(average_corr))
             count += 1
