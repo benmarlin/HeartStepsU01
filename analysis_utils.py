@@ -692,12 +692,13 @@ def get_available_data(tD, tH, df):
             available_dict[(td, th)] = df_all.dropna()         
     return df_days.astype(int), df_participants.astype(int), available_dict
 
-def get_info_within_valid_participant(df, behaviors, activities, th, td, participants=None, b_plot=False):
+def get_info_within_valid_participant(df, behaviors, activities, th, td, participants=None,
+                                      b_plot=False, b_hist=False, y_lim_hist=None):
     if participants == None:
         participants = list(set([x[0] for x in df.index.values]))
     if b_plot:
-        plt.figure(figsize=(14,14))
-        plt.subplots_adjust(wspace=0.5, hspace=0.5)
+        plt.figure(figsize=(14,18))
+        plt.subplots_adjust(wspace=0.5, hspace=0.7)
     df_correlation_averages=pd.DataFrame(np.zeros((len(behaviors),len(activities))), index=behaviors, columns=activities)
     df_yields=pd.DataFrame(np.zeros((len(behaviors),len(activities))), index=behaviors, columns=activities)
     correlations_dict = collections.defaultdict(list)
@@ -706,7 +707,7 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
     days_averages = {}
     count_all_valid = collections.defaultdict(int)
     participants_all_valid = collections.defaultdict(int)
-    group = df.groupby(by='Subject ID')    
+    group = df.groupby(by='Subject ID')
     for p, participant in enumerate(participants):
         df_individual = group.get_group(participant)    
         for behavior in behaviors:
@@ -732,21 +733,21 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
                         data1 = df_corr[behavior]
                         data2 = df_corr[activity]
                         corr, _ = pearsonr(data1, data2)
-                        correlations_dict[(activity,behavior)].append(corr)
+                        correlations_dict[(activity,behavior)].append(corr)             
         if b_plot:
             count = 0
-        for k,v in correlations_dict.items():
+        for k,v in sorted(correlations_dict.items()):
             average_corr = round(np.nanmean(np.array(v), axis=0),3)
             correlations_averages[k] = average_corr
             if b_plot:
                 xs = range(len(v))
                 subplot = count+1
-                if subplot <= 20:
-                    plt.subplot(5,4,subplot)
+                if subplot <= 24:
+                    plt.subplot(6,4,subplot)
                     plt.scatter(xs, v, s=10, color='blue', alpha=.5)
                     plt.xlabel('sample')
                     plt.ylabel('correlation')
-                    plt.title(k)
+                    plt.title(str(k) + '\nmean corr = '+ str(average_corr))
                     plt.ylim(-.8,.8)
                     plt.axhline(y=0, ls=':', color='gray')
                     if p == (len(participants)-1):
@@ -755,16 +756,41 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
                             color='green'
                         plt.axhline(y=average_corr, color=color)
                 count += 1
-    if b_plot:
+    if b_hist:
+        count = 0
+        plt.figure(figsize=(14,18))
+        plt.subplots_adjust(wspace=0.5, hspace=0.8)
+        for k,v in sorted(correlations_dict.items()):
+            average_corr = round(np.nanmean(np.array(v), axis=0),3)          
+            subplot = count+1
+            if subplot <= 24:
+                plt.subplot(6,4,subplot)
+                plt.hist(v, bins=16, color='blue', alpha=.5)
+                plt.axvline(x=0, ls=':', color='gray')
+                color='magenta'
+                if average_corr < 0:
+                    color='green'
+                plt.axvline(x=average_corr, color=color)
+                plt.xlim(-0.75,0.75)
+                if y_lim_hist == None:
+                    y_lim_hist = (0, int(0.65*td))
+                plt.ylim(y_lim_hist)
+                plt.title(str(k) + '\nmean corr = '+ str(average_corr))
+            count += 1
+    if b_plot or b_hist:
         plt.show()
     for k,average_corr in correlations_averages.items():
         df_correlation_averages.loc[k[1],k[0]] = average_corr        
     return df_correlation_averages, df_yields.astype(int)
 
-def get_correlations_average_within_valid_participant(df, behaviors, activities, th, td, participants=None, b_plot=False):
-    df_correlation_averages, _ = get_info_within_valid_participant(df, behaviors, activities, th, td, participants, b_plot)
+def get_correlations_average_within_valid_participant(df, behaviors, activities, th, td, participants=None,
+                                                      b_plot=False, b_hist=True, y_lim_hist=None):
+    df_correlation_averages, _ = get_info_within_valid_participant(df, behaviors, activities, th, td, participants,
+                                                                   b_plot, b_hist, y_lim_hist)
     return df_correlation_averages
 
-def get_yields_within_valid_participant(df, behaviors, yields, th, td, participants=None, b_plot=False):
-    _, df_yields = get_info_within_valid_participant(df, behaviors, yields, th, td, participants, b_plot)
+def get_yields_within_valid_participant(df, behaviors, yields, th, td, participants=None):
+    _, df_yields = get_info_within_valid_participant(df, behaviors, yields, th, td, participants,
+                                                     b_plot=False, b_hist=False, y_lim_hist=None)
     return df_yields
+
