@@ -350,14 +350,14 @@ def get_data_yields(df, td, th, behaviors, yields):
     for col in columns:
         if (col in yields) or (col in behaviors):
             valid_columns.append(col)    
-    df_yields=pd.DataFrame(np.zeros((len(valid_columns),len(yields))), index=valid_columns, columns=yields)
+    df_yield_list=pd.DataFrame(np.zeros((len(valid_columns),len(yields))), index=valid_columns, columns=yields)
     for behavior in behaviors:
         if behavior in df:
             df_behavior = df[['Fitbit Step Count', 'Fitbit Minutes Worn', behavior]]            
             table_days, table_participants, _ = get_available_data([td], [th], df_behavior)
-            df_yields.loc[behavior,yields[0]] = table_participants.values[0][0]
-            df_yields.loc[behavior,yields[1]] = table_days.values[0][0]
-    return df_yields.astype(int)
+            df_yield_list.loc[behavior,yields[0]] = table_participants.values[0][0]
+            df_yield_list.loc[behavior,yields[1]] = table_days.values[0][0]
+    return df_yield_list.astype(int)
 
 def update_name(old_name):
     return str(old_name).replace(' ', '_').lower()
@@ -692,15 +692,19 @@ def get_available_data(tD, tH, df):
             available_dict[(td, th)] = df_all.dropna()         
     return df_days.astype(int), df_participants.astype(int), available_dict
 
-def get_info_within_valid_participant(df, behaviors, activities, th, td, participants=None,
-                                      b_plot=False, b_hist=False, y_lim_hist=None):
+def get_correlations_average_within_valid_participant(df, behaviors, activities, yields, th, td, participants=None,
+                                                      b_plot=False, b_hist=False, y_lim_hist=None):
+    #yields[0] is the column name for "Num. Participants"
+    #yields[1] is the column name for "Num. Days"
     if participants == None:
         participants = list(set([x[0] for x in df.index.values]))
     if b_plot:
         plt.figure(figsize=(14,18))
         plt.subplots_adjust(wspace=0.5, hspace=0.7)
     df_correlation_averages=pd.DataFrame(np.zeros((len(behaviors),len(activities))), index=behaviors, columns=activities)
-    df_yields=pd.DataFrame(np.zeros((len(behaviors),len(activities))), index=behaviors, columns=activities)
+    df_yield_list = []
+    for activity in activities:
+        df_yield_list.append(pd.DataFrame(np.zeros((len(behaviors),len(yields))), index=behaviors, columns=yields))
     correlations_dict = collections.defaultdict(list)
     correlations_averages = {}
     participants_averages = {}
@@ -709,31 +713,27 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
     participants_all_valid = collections.defaultdict(int)
     group = df.groupby(by='Subject ID')
     for p, participant in enumerate(participants):
-        df_individual = group.get_group(participant)    
+        df_individual = group.get_group(participant)        
         for behavior in behaviors:
-            for activity in activities:                
-                if activity in ["Num. Participants","Num. Days"]:
-                    df_yield = df_individual[[behavior, 'Fitbit Minutes Worn']]
-                    df_yield = df_yield[df_yield['Fitbit Minutes Worn'] >= 60*th]
-                    df_yield = df_yield[[behavior]]                    
-                    df_yield = df_yield.dropna()
-                    count = df_yield.shape[0]
-                    if count >= td:
-                        count_all_valid[(activity,behavior)] += count
-                        participants_all_valid[(activity,behavior)] += 1
-                        df_yields.loc[behavior, activities[0]] = participants_all_valid[(activity,behavior)]
-                        df_yields.loc[behavior, activities[1]] = count_all_valid[(activity,behavior)]
-                else:
-                    df_corr = df_individual[[behavior, activity, 'Fitbit Minutes Worn']]
-                    df_corr = df_corr[df_corr['Fitbit Minutes Worn'] >= 60*th]
-                    df_corr = df_corr[[behavior, activity]]                    
-                    df_corr = df_corr.dropna()
-                    count = df_corr.shape[0]
-                    if count >= td:           
-                        data1 = df_corr[behavior]
-                        data2 = df_corr[activity]
-                        corr, _ = pearsonr(data1, data2)
-                        correlations_dict[(activity,behavior)].append(corr)             
+            for i, activity in enumerate(activities):             
+                df_corr = df_individual[[behavior, activity, 'Fitbit Minutes Worn']]
+                df_corr = df_corr[df_corr['Fitbit Minutes Worn'] >= 60*th]
+                df_corr = df_corr[[behavior, activity]]                        
+                df_corr = df_corr.dropna()
+                count = df_corr.shape[0]
+                if count >= td:                                  
+                    data1 = df_corr[behavior]
+                    data2 = df_corr[activity]   
+                    corr, _ = pearsonr(data1, data2)                      
+                    if str(corr).lower() == 'nan':
+                        corr = 0.                        
+                    correlations_dict[(activity,behavior)].append(corr)
+                    participants_all_valid[((activity,behavior), yields[0])] += 1
+                    count_all_valid[((activity,behavior), yields[1])] += count
+                    if activity == activities[i]:
+                        df_yield_list[i].loc[behavior, yields[0]] = participants_all_valid[((activity,behavior), yields[0])]
+                        df_yield_list[i].loc[behavior, yields[1]] = count_all_valid[((activity,behavior), yields[1])]
+                        df_yield_list[i] = df_yield_list[i].astype(int)
         if b_plot:
             count = 0
         for k,v in sorted(correlations_dict.items()):
@@ -766,31 +766,20 @@ def get_info_within_valid_participant(df, behaviors, activities, th, td, partici
             if subplot <= 24:
                 plt.subplot(6,4,subplot)
                 bins = np.linspace(-0.75, 0.75, 16)
-                plt.hist(v, bins=bins, color='blue', alpha=.5)
+                plt.hist(v, bins=bins, color='blue', alpha=.5)                
                 plt.axvline(x=0, ls=':', color='gray')
                 color='magenta'
                 if average_corr < 0:
                     color='green'
                 plt.axvline(x=average_corr, color=color)
                 if y_lim_hist == None:
-                    y_lim_hist = (0,18)
+                    y_lim_hist = (0,44)
                 plt.ylim(y_lim_hist)
-                plt.title(str(k) + '\nmean corr = '+ str(average_corr))
+                title = str(k) + '\nmean corr = '+ str(average_corr)              
+                plt.title(title)
             count += 1
     if b_plot or b_hist:
         plt.show()
     for k,average_corr in correlations_averages.items():
         df_correlation_averages.loc[k[1],k[0]] = average_corr        
-    return df_correlation_averages, df_yields.astype(int)
-
-def get_correlations_average_within_valid_participant(df, behaviors, activities, th, td, participants=None,
-                                                      b_plot=False, b_hist=True, y_lim_hist=None):
-    df_correlation_averages, _ = get_info_within_valid_participant(df, behaviors, activities, th, td, participants,
-                                                                   b_plot, b_hist, y_lim_hist)
-    return df_correlation_averages
-
-def get_yields_within_valid_participant(df, behaviors, yields, th, td, participants=None):
-    _, df_yields = get_info_within_valid_participant(df, behaviors, yields, th, td, participants,
-                                                     b_plot=False, b_hist=False, y_lim_hist=None)
-    return df_yields
-
+    return (df_correlation_averages, df_yield_list)
