@@ -722,18 +722,21 @@ def get_correlations_average_within_valid_participant(df, behaviors, activities,
     for p, participant in enumerate(participants):
         df_individual = group.get_group(participant)        
         for behavior in behaviors:
-            for i, activity in enumerate(activities):             
+            for i, activity in enumerate(activities):                
                 df_corr = df_individual[[behavior, activity, 'Fitbit Minutes Worn']]
                 df_corr = df_corr[df_corr['Fitbit Minutes Worn'] >= 60*th]
                 df_corr = df_corr[[behavior, activity]]                        
                 df_corr = df_corr.dropna()
                 count = df_corr.shape[0]
-                if count >= td:                                  
+                if count >= td:
                     data1 = df_corr[behavior]
-                    data2 = df_corr[activity]   
-                    corr, _ = pearsonr(data1, data2)                      
-                    if str(corr).lower() == 'nan':
-                        corr = 0.                        
+                    data2 = df_corr[activity]
+                    stdev_1 = np.array(data1).std()
+                    stdev_2 = np.array(data2).std()
+                    if stdev_1 == 0. or stdev_2 == 0.:
+                        corr = 0.
+                    else:
+                        corr, _ = pearsonr(data1, data2)                    
                     correlations_dict[(activity,behavior)].append(corr)
                     participants_all_valid[((activity,behavior), yields[0])] += 1
                     count_all_valid[((activity,behavior), yields[1])] += count
