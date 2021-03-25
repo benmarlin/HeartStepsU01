@@ -658,11 +658,12 @@ def get_fitbit_step_per_mood(df, participants, mood, threshold, y_max=None, x_li
     plt.gca().xaxis.set_major_locator(mticker.MultipleLocator(1))
     plt.legend(loc=2, fontsize=8)
 
-def get_available_data(tD, tH, df): 
+def get_available_data(tD, tH, df, td2=None, th2=None):
+    #Set td2 and th2 to compute the fractions    
     df_days=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD],
-                         columns=["tH=%d"%x for x in tH])
+                         columns=["tH=%s"%x for x in tH])
     df_participants=pd.DataFrame(np.zeros((len(tD),len(tH))),index=["tD=%d"%x for x in tD], 
-                                 columns=["tH=%d"%x for x in tH])
+                                 columns=["tH=%s"%x for x in tH])
     participants = list(set([p for (p, date) in df.index.values]))
     available_dict = {}
     for th in tH:
@@ -688,9 +689,15 @@ def get_available_data(tD, tH, df):
             index_names = df_all.index.names
             df_all = df_all.reset_index()
             df_all = df_all[df_all['Subject ID'].isin(valid_participants)]
-            df_all = df_all.set_index(index_names)
-            available_dict[(td, th)] = df_all.dropna()         
-    return df_days.astype(int), df_participants.astype(int), available_dict
+            df_all = df_all.set_index(index_names)           
+            available_dict[(td, th)] = df_all.dropna()
+    if (th2 != None) and (td2 != None):
+        df_days_normalized = df_days / df_days.loc['tD='+str(td2), 'tH='+str(th2)]
+        df_participants_normalized = df_participants / df_participants.loc['tD='+str(td2), 'tH='+str(th2)]
+        return (df_days.astype(int), df_participants.astype(int), available_dict,
+                df_days_normalized,  df_participants_normalized)
+    else:
+        return (df_days.astype(int), df_participants.astype(int), available_dict)
 
 def get_correlations_average_within_valid_participant(df, behaviors, activities, yields, th, td, participants=None,
                                                       b_plot=False, b_hist=False, y_lim_hist=None):
