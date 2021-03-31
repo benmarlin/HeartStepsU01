@@ -801,5 +801,5 @@ def get_correlations_average_within_valid_participant(df, behaviors, activities,
     for k,average_corr in correlations_averages.items():
         df_correlation_averages.loc[k[1],k[0]] = average_corr  
         
-    results = {"average_correlations":df_correlation_averages,  "raw_correlations":correlations_dict, "correlation_yield", df_yield_list}          
+    results = {"average_correlations":df_correlation_averages,  "raw_correlations":correlations_dict, "correlation_yield":df_yield_list}          
     return results 
