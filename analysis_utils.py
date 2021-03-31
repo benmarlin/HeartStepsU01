@@ -702,7 +702,7 @@ def get_available_data(tD, tH, df):
     out=  {"dfdays":df_days.astype(int), 
            "dfparticipants":df_participants.astype(int),
            "dfdata": available_dict, 
-           "dfdaysnorm":df_days.astype(int),
+           "dfdaysnorm":df_days_normalized,
            "dfparticipantsnorm":df_participants_normalized}
            
     return out
