@@ -721,6 +721,8 @@ def get_correlations_average_within_valid_participant(df, behaviors, activities,
     for activity in activities:
         df_yield_list.append(pd.DataFrame(np.zeros((len(behaviors),len(yields))), index=behaviors, columns=yields))
     correlations_dict = collections.defaultdict(list)
+    behavior_stds_dict = collections.defaultdict(list)
+    
     correlations_averages = {}
     participants_averages = {}
     days_averages = {}
@@ -741,6 +743,9 @@ def get_correlations_average_within_valid_participant(df, behaviors, activities,
                     data2 = df_corr[activity]
                     stdev_1 = np.array(data1).std()
                     stdev_2 = np.array(data2).std()
+                    
+                    behavior_stds_dict[(activity,behavior)].append(stdev_1)
+                    
                     if stdev_1 == 0. or stdev_2 == 0.:
                         corr = 0.
                     else:
@@ -801,5 +806,8 @@ def get_correlations_average_within_valid_participant(df, behaviors, activities,
     for k,average_corr in correlations_averages.items():
         df_correlation_averages.loc[k[1],k[0]] = average_corr  
         
-    results = {"average_correlations":df_correlation_averages,  "raw_correlations":correlations_dict, "correlation_yield":df_yield_list}          
+    results = {"average_correlations":df_correlation_averages,  
+               "raw_correlations":correlations_dict, 
+               "correlation_yield":df_yield_list},
+               "raw_behavior_stds":behavior_stds_dict}          
     return results 
