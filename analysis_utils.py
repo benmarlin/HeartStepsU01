@@ -29,8 +29,16 @@ def process_morning_survey(df, b_intrinsic=True):
     df['Mood Code'] = df['Mood'].cat.codes
     categories = dict(enumerate(df['Mood'].cat.categories))
     for key, value in categories.items():
-        df[value] = df['Mood Code'].apply(lambda x: True if x == key else False)
-        
+        new_values = []
+        for x in df['Mood Code'].values:            
+            if str(x) != str(-1):
+                if x == key:
+                    new_values.append(True)
+                else:
+                    new_values.append(False)
+            else:
+                new_values.append(np.nan)   
+        df[value] = new_values       
     column_list = ['Busy', 'Committed', 'Rested']     
     for key, value in categories.items():
         column_list.append(value)
