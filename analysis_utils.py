@@ -23,7 +23,7 @@ from sklearn.impute import IterativeImputer, KNNImputer
 from . import data_utils
 
 
-def process_morning_survey(df, b_intrinsic=True):
+def process_morning_survey(df, b_intrinsic=True, b_categorical=False):
     #Get Mood categories and create new columns
     df['Mood'] = pd.Categorical(df['Mood'])
     df['Mood Code'] = df['Mood'].cat.codes
@@ -49,7 +49,10 @@ def process_morning_survey(df, b_intrinsic=True):
                                     for i, x in enumerate(df["Extrinsic"].values)]
         df_selected["Intrinsic"] = [x if (str(x).lower() != 'nan') else df["Mm_Intrinsic_Motivation"].values[i]
                                     for i, x in enumerate(df["Intrinsic"].values)]
-    return df_selected
+    if b_categorical:
+        return pd.concat([df['Mood'], df_selected], axis=1)
+    else:
+        return df_selected
 
 def process_daily_metrics(df):
     return df[['Fitbit Step Count', 'Fitbit Minutes Worn']]
