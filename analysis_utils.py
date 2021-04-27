@@ -20,6 +20,8 @@ from sklearn.metrics import accuracy_score
 from sklearn.experimental import enable_iterative_imputer
 from sklearn.impute import IterativeImputer, KNNImputer
 
+from datetime import timedelta
+
 from . import data_utils
 
 
@@ -71,33 +73,58 @@ def process_fitbit_minute(df):
     df = df.drop(columns=['fitbit_account', 'username', 'date'])
     return df
 
-def process_activity_logs(df, column_names=None):
+def process_activity_logs(df, column_names=None, b_check_exceeded=True):
     import warnings
     warnings.filterwarnings('ignore')
     if column_names == None:
-        df = df[['Activity Duration']]
+        df_activity = df[['Activity Duration']]
     else:
-        df = df[column_names]
+        df_activity = df[column_names]
     participants = list(set([p for (p, date) in df.index.values]))
-    indices = df.index.names
+    indices = df_activity.index.names
     #Remark: pandas.DataFrame.resample() only aggregates numeric types
-    df['Activity Duration'] = df['Activity Duration'].astype(int)
+    df_activity['Activity Duration'] = df_activity['Activity Duration'].astype(int)
+    df_activity['Start Time'] = pd.to_timedelta(df['Start Time']) 
     frames = []
     for participant in participants:
-        df_individual = df.groupby(by='Subject ID').get_group(participant)        
+        df_individual = df_activity.groupby(by='Subject ID').get_group(participant)        
         df_individual = df_individual.reset_index()
         df_individual['Date'] = pd.to_datetime(df_individual['Date'], format='%Y-%m-%d')
-        df_individual = df_individual.set_index('Date')        
-        df_individual = df_individual.resample('D').sum().fillna(0)
+        duration   = pd.to_timedelta(df_individual['Activity Duration'], unit='minutes')
+        start_time = df_individual['Start Time']
+        #Handle overlapping time blocks    
+        df_individual['With Overlap'] = (start_time + duration)        
+        df_individual['Previous with Overlap'] = df_individual['With Overlap'].shift()
+        df_individual['Previous with Overlap'].values[0] = 0
+        df_individual['Same as Previous Day'] = df_individual['Date'].shift() == df_individual['Date']            
+        df_individual['Found Overlap'] = (df_individual['Previous with Overlap'] > df_individual['Start Time']) & (
+            df_individual['Same as Previous Day'] == True)
+        df_individual['Overlap'] = df_individual['Previous with Overlap'] - df_individual['Start Time']
+        df_individual['Overlap'] = df_individual['Overlap'][df_individual['Found Overlap'] == True]
+        df_individual['Overlap'] = df_individual['Overlap'] / np.timedelta64(1,'m')
+        df_individual['Overlap'] = df_individual['Overlap'].shift(-1)
+        df_individual['Old Duration'] = df_individual['Activity Duration'].copy() 
+        df_individual['Activity Duration'] = df_individual['Old Duration'] - df_individual['Overlap'].fillna(0)
+        df_individual['Exceed Day'] = df_individual['With Overlap'] < df_individual['Start Time']
+        if b_check_exceeded:
+            if df_individual['Exceed Day'].any() == True:
+                print('participant ', participant, 'activity duration exceeded day')
+        #Build daily frame: sum up all activity durations
+        df_individual['Activity Duration'] = df_individual['Activity Duration'].astype(int)
+        df_individual = df_individual[['Date', 'Activity Duration', 'Start Time']]        
+        df_individual = df_individual.reset_index(drop=True)
+        df_individual = df_individual.set_index('Date')       
+        df_individual = df_individual.resample('D')
+        df_individual = df_individual.sum().fillna(0)
         df_individual = df_individual.reset_index()
         df_individual['Subject ID'] = participant
         df_individual['Date'] = df_individual['Date'].astype(str)
-        df_individual = df_individual.set_index(indices)
+        df_individual = df_individual.set_index(indices)        
         frames.append(df_individual)
-    df = pd.concat(frames)
-    df = df.sort_index(level='Subject ID')
-    df.name = 'Activity Logs'
-    return df
+    df_activity = pd.concat(frames)
+    df_activity = df_activity.sort_index(level='Subject ID')
+    df_activity.name = 'Activity Logs'
+    return df_activity
 
 def get_score_mapping(df_score):
     df_score = df_score.rename(columns={'study_id':'Subject ID'})
