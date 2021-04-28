@@ -120,6 +120,7 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
                     break                
             df[field] = df[field].map(lambda x: x if str(x).lower()=="nan" else dict_notes[int(x)])
 
+
     #--------------------------------------------------------------------------------
     #Create new csv files
     
@@ -134,6 +135,12 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
                                                             if shorten(x) in map_to_new_name else x)    
     df.columns = df.columns.map(lambda x: x.replace(shorten(x), map_to_new_name[shorten(x)])
                                                             if shorten(x) in map_to_new_name else x)
+
+    df = df.rename(columns={'sex': 'gender'})
+    df['gender'] = df['gender'].map(lambda x: "0: Female" if str(x)=="0" else "1: Male")
+    new_frame = pd.DataFrame([['gender', 'Boolean', 'Required', 'Gender of the participant (0: Female, 1: Male)']],
+                             columns=['ElementName','DataType','Required', 'ElementDescription'])
+    dd = pd.concat([new_frame, dd])
     
     output_data_dictionary = 'baseline-survey.csv'
     output_data = 'baseline-survey-data.csv'
@@ -237,7 +244,7 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
 def main(argv):
 
     #For example, run the following command:
-    #python baseline_utils.py -d "HeartSteps-BaselineSurvey_DataDictionary_2021-01-22.csv" -f "HeartSteps-BaselineSurvey_DATA_2021-01-27_1340.csv" -o ""
+    #python baseline_utils.py -d "HeartSteps_DataDictionary_2021-01-22.csv" -f "HeartSteps-BaselineSurveyData_DATA_2021-04-21_1225.csv" -o ""
 
     instructions = "baseline_utils.py -d <data_dictionary_filename> -f <data_filename> -o <output_folder>"
     try:
