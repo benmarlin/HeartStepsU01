@@ -39,10 +39,26 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     dd = dd.dropna(subset=['ElementName'])
 
     #--------------------------------------------------------------------------------
-    #Process data for KPData
+    #Process data for KPData    
 
-    #TODO: df = pd.read_csv(data_filename)
-    df = pd.DataFrame(columns=dd['ElementName'])
+    df = pd.read_csv(data_filename)
+    df.columns = df.columns.str.strip().str.lower()
+    df = df.rename(columns={'studyid': 'study_id'})      
+
+    column_names = dd['ElementName'].values
+    df = df[column_names]
+
+    for name in list(df.columns):
+        if str(name).lower().find('trait') != -1:
+            df[name] = df[name].fillna(4.0) 
+            df[name] = df[name].astype(float)
+            df[name] = df[name].replace(1.0,'1 = Disagree strongly')
+            df[name] = df[name].replace(2.0,'2 = Disagree moderately')
+            df[name] = df[name].replace(3.0,'3 = Disagree a little')
+            df[name] = df[name].replace(4.0,'4 = Neither agree nor disagree')
+            df[name] = df[name].replace(5.0,'5 = Agree a little')
+            df[name] = df[name].replace(6.0,'6 = Agree moderately')
+            df[name] = df[name].replace(7.0,'7 = Agree strongly')   
     
     #--------------------------------------------------------------------------------
     #Create new csv files
@@ -68,13 +84,13 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
         if str(name).lower().find('trait') != -1:
             df_data[name] = df[name]
 
-    reverse_map = { '0: 1 = Disagree strongly'          : '6: 7 = Agree strongly',
-                    '1: 2 = Disagree moderately'        : '5: 6 = Agree moderately',
-                    '2: 3 = Disagree a little'          : '4: 5 = Agree a little',
-                    '3: 4 = Neither agree nor disagree' : '3: 4 = Neither agree nor disagree',
-                    '4: 5 = Agree a little'             : '2: 3 = Disagree a little',
-                    '5: 6 = Agree moderately'           : '1: 2 = Disagree moderately',
-                    '6: 7 = Agree strongly'             : '0: 1 = Disagree strongly' }
+    reverse_map = { '1 = Disagree strongly'          : '7 = Agree strongly',
+                    '2 = Disagree moderately'        : '6 = Agree moderately',
+                    '3 = Disagree a little'          : '5 = Agree a little',
+                    '4 = Neither agree nor disagree' : '4 = Neither agree nor disagree',
+                    '5 = Agree a little'             : '3 = Disagree a little',
+                    '6 = Agree moderately'           : '2 = Disagree moderately',
+                    '7 = Agree strongly'             : '1 = Disagree strongly' }
     
     def reverse(df):
         df = df.apply(lambda x: reverse_map[x])
@@ -82,17 +98,15 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
 
     df_tipi = {}
     df_tipi['Extraversion']          = [df_data['trait_1'].values,            reverse(df_data['trait_6']).values]
-    df_tipi['Agreeableness']         = [reverse(df_data['trait_2']).values,    df_data['trait_7'].values]
-    df_tipi['Conscientiousness']     = [df_data['trait_3'].values,           reverse(df_data['trait_8']).values]
-    df_tipi['Emotional Stability']   = [reverse(df_data['trait_4']).values,     df_data['trait_9'].values]
-    df_tipi['Openess to Experience'] = [df_data['trait_5'].values,                 reverse(df_data['trait_10']).values]
+    df_tipi['Agreeableness']         = [reverse(df_data['trait_2']).values,   df_data['trait_7'].values]
+    df_tipi['Conscientiousness']     = [df_data['trait_3'].values,            reverse(df_data['trait_8']).values]
+    df_tipi['Emotional Stability']   = [reverse(df_data['trait_4']).values,   df_data['trait_9'].values]
+    df_tipi['Openess to Experience'] = [df_data['trait_5'].values,            reverse(df_data['trait_10']).values]
 
     scores = {}
     for k,v in df_tipi.items():        
-        item0 = [str(x).split(':')[1] for x in v[0]]
-        item0 = [int(str(x).split('=')[0]) for x in item0]
-        item1 = [str(x).split(':')[1] for x in v[1]]
-        item1 = [int(str(x).split('=')[0]) for x in item1]
+        item0 = [int(str(x).split('=')[0]) for x in v[0]]
+        item1 = [int(str(x).split('=')[0]) for x in v[1]]
         scores[k] = [(x+y)/2 for x, y in zip(item0, item1)]
     scores = pd.DataFrame(scores).set_index(df['study_id'])
 
@@ -105,7 +119,7 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
 def main(argv):
 
     #For example, run the following command:
-    #python kp_baseline_utils.py -d "HeartSteps Data Dictionary.csv" -f "HeartSteps Data.csv" -o ""
+    #python kp_baseline_utils.py -d "HeartSteps Data Dictionary.csv" -f "HS Survey Data 10.8.2020.csv" -o ""
 
     instructions = "baseline_utils.py -d <data_dictionary_filename> -f <data_filename> -o <output_folder>"
     try:
