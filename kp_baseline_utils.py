@@ -23,7 +23,12 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
                             'Valid Values (if not included in label)':'Notes'})
 
     dd['ElementName'] = dd['ElementName'].str.lower()
-    dd['ElementName'] = dd['ElementName'].replace('studyid','study_id')
+
+    replace_names = {'studyid': 'study_id',
+                     'dem_1': 'age',
+                     'dem_2': 'gender'}
+    for k,v in replace_names.items():
+        dd['ElementName'] = dd['ElementName'].replace(k,v)
     
     dd['DataType'] = dd['DataType'].replace('integer','Integer')
     dd['DataType'] = dd['DataType'].replace('boolean','Boolean')
@@ -42,10 +47,11 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     #Process data for KPData    
 
     df = pd.read_csv(data_filename)
-    df.columns = df.columns.str.strip().str.lower()
-    df = df.rename(columns={'studyid': 'study_id'})      
 
-    column_names = dd['ElementName'].values
+    df.columns = df.columns.str.strip().str.lower()   
+    df = df.rename(columns=replace_names)
+
+    column_names = dd['ElementName'].values    
     df = df[column_names]
 
     for name in list(df.columns):
@@ -74,6 +80,19 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     print('df shape    =', df.shape)
     print('dd output   =', output_data_dictionary)
     print('df output   =', output_data)
+
+    #--------------------------------------------------------------------------------
+    #Create social csv file
+
+    column_names = ['age', 'gender', 'support_1', 'support_2',
+                    'support_3', 'support_4', 'support_5', 'support_6']
+    df_social = df[column_names]
+    df_social = df_social.set_index(df['study_id'])
+
+    social_filename = 'kp-baseline-survey-social.csv'
+    social_path = os.path.join(output_folder, social_filename)
+    df_social.to_csv(social_path)
+    print('social      =', social_path)
 
     #--------------------------------------------------------------------------------
     #Create TIPI scores
