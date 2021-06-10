@@ -3,6 +3,7 @@ import numpy as np
 import sys, getopt
 import os
 from os import path
+import collections
 
 def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_folder):
 
@@ -98,7 +99,6 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     #Create TIPI scores
 
     df_data = {}
-
     for name in list(df.columns):
         if str(name).lower().find('trait') != -1:
             df_data[name] = df[name]
@@ -122,17 +122,51 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     df_tipi['Emotional Stability']   = [reverse(df_data['trait_4']).values,   df_data['trait_9'].values]
     df_tipi['Openess to Experience'] = [df_data['trait_5'].values,            reverse(df_data['trait_10']).values]
 
-    scores = {}
+    tipi_scores = {}
     for k,v in df_tipi.items():        
         item0 = [int(str(x).split('=')[0]) for x in v[0]]
         item1 = [int(str(x).split('=')[0]) for x in v[1]]
-        scores[k] = [(x+y)/2 for x, y in zip(item0, item1)]
-    scores = pd.DataFrame(scores).set_index(df['study_id'])
+        tipi_scores[k] = [(x+y)/2 for x, y in zip(item0, item1)]
+    tipi_scores = pd.DataFrame(tipi_scores).set_index(df['study_id'])
 
     tipi_scores_filename = 'kp-baseline-survey-tipi.csv'
     tipi_scores_path = os.path.join(output_folder, tipi_scores_filename)
-    scores.to_csv(tipi_scores_path)
+    tipi_scores.to_csv(tipi_scores_path)
     print('TIPI scores =', tipi_scores_filename)
+
+    #--------------------------------------------------------------------------------
+    #Create IPAQ scores
+
+    ipaq_data = collections.defaultdict(list)
+    for name in list(df.columns):
+        if str(name).lower().find('ipaq') != -1:
+            if ((str(name).lower().find('_none') == -1) and
+                (str(name).lower().find('_dk') == -1) and
+                (str(name).lower().find('ipaq_4') == -1)):
+                for item in df[name].values:
+                    if str(item).lower() == 'nan':
+                        ipaq_data[name].append(0)
+                    else:
+                        item = str(item).replace('-','')
+                        item = float(item)
+                        ipaq_data[name].append(item)
+                ipaq_data[name] = np.array(ipaq_data[name])
+
+
+    Met_Minutes = 8.0 * ipaq_data['ipaq_1'] * (ipaq_data['ipaq_1_hr'] * 60. + ipaq_data['ipaq_1_min']) \
+                + 4.0 * ipaq_data['ipaq_2'] * (ipaq_data['ipaq_2_hr'] * 60. + ipaq_data['ipaq_2_min']) \
+                + 3.3 * ipaq_data['ipaq_3'] * (ipaq_data['ipaq_3_hr'] * 60. + ipaq_data['ipaq_3_min'])
+
+    MVPA = (ipaq_data['ipaq_1_hr'] * 60. + ipaq_data['ipaq_1_min']) \
+         + (ipaq_data['ipaq_2_hr'] * 60. + ipaq_data['ipaq_2_min'])
+     
+    ipaq_scores = {'Met_Minutes': Met_Minutes, 'MVPA' : MVPA}        
+    ipaq_scores = pd.DataFrame(ipaq_scores).set_index(df['study_id'])
+
+    ipaq_scores_filename = 'kp-baseline-survey-ipaq.csv'
+    ipaq_scores_path = os.path.join(output_folder, ipaq_scores_filename)
+    ipaq_scores.to_csv(ipaq_scores_path)
+    print('IPAQ scores =', ipaq_scores_filename)
 
 
 def main(argv):
