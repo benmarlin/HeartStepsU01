@@ -152,15 +152,16 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
                         ipaq_data[name].append(item)
                 ipaq_data[name] = np.array(ipaq_data[name])
 
-
-    Met_Minutes = 8.0 * ipaq_data['ipaq_1'] * (ipaq_data['ipaq_1_hr'] * 60. + ipaq_data['ipaq_1_min']) \
-                + 4.0 * ipaq_data['ipaq_2'] * (ipaq_data['ipaq_2_hr'] * 60. + ipaq_data['ipaq_2_min']) \
-                + 3.3 * ipaq_data['ipaq_3'] * (ipaq_data['ipaq_3_hr'] * 60. + ipaq_data['ipaq_3_min'])
-
-    MVPA = (ipaq_data['ipaq_1_hr'] * 60. + ipaq_data['ipaq_1_min']) \
-         + (ipaq_data['ipaq_2_hr'] * 60. + ipaq_data['ipaq_2_min'])
+    
+    MOVA = ipaq_data['ipaq_1'] * (ipaq_data['ipaq_1_hr'] * 60. + ipaq_data['ipaq_1_min'])
+    MOMA = ipaq_data['ipaq_2'] * (ipaq_data['ipaq_2_hr'] * 60. + ipaq_data['ipaq_2_min'])
+    MOW  = ipaq_data['ipaq_3'] * (ipaq_data['ipaq_3_hr'] * 60. + ipaq_data['ipaq_3_min'])
+    
+    MMVA = MOVA + MOMA
+    MMAE = 2. * MOVA + MOMA                                  
+    MMET = 8. * MOVA + 4. * MOMA + 3.3 * MOW
      
-    ipaq_scores = {'Met_Minutes': Met_Minutes, 'MVPA' : MVPA}        
+    ipaq_scores = {'MOVA':MOVA, 'MOMA':MOMA, 'MOW':MOW, 'MMVA':MMVA, 'MMAE':MMAE, 'MMET':MMET}        
     ipaq_scores = pd.DataFrame(ipaq_scores).set_index(df['study_id'])
 
     ipaq_scores_filename = 'kp-baseline-survey-ipaq.csv'
