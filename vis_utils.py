@@ -247,4 +247,37 @@ def show_catalog_selector(catalog_file):
     )
     display(w)
     return(w)
-    
+
+def get_fitbit_per_participant(data_dir, participant, interval='480Min', b_display=True):
+    filename = data_dir+'fitbit_per_minute/fitbit_per_minute_resampled_' + interval + '_' + participant + '.csv'
+    input_df = pd.read_csv(filename)
+    input_df = input_df.reset_index()
+    input_df = input_df[['Subject ID', 'time', 'datetime', 'steps', 'heart_rate']]
+    input_df['datetime'] = pd.to_datetime(input_df['datetime'])
+    input_df = input_df.set_index(['Subject ID', 'time'])
+    print('loading', filename)
+        
+    df_plot = input_df[['datetime', 'heart_rate', 'steps']]
+    if b_display:
+        df_display = df_plot.reset_index()
+        df_display = df_display[['Subject ID','datetime', 'heart_rate', 'steps']]
+        df_display = df_display.set_index(['Subject ID','datetime'])
+        print(df_display.head())
+        print(df_display.tail())
+        print()
+    plt.figure(figsize=(14,3))
+    plt.bar(df_plot['datetime'].values,df_plot['heart_rate'].values)
+    plt.grid()
+    plt.xlabel('date')
+    plt.ylabel('heart_rate')
+    plt.title('participant '+participant)
+    plt.show()
+    print()
+    plt.figure(figsize=(14,3))
+    plt.bar(df_plot['datetime'].values,df_plot['steps'].values)
+    plt.grid()
+    plt.xlabel('date')
+    plt.ylabel('steps')
+    plt.title('participant '+participant)
+    plt.show()  
+        
