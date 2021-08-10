@@ -33,7 +33,7 @@ def iweekof(df, previous_levels, str_date):
   previous_level_names = []
   previous_level_value = []
   for i, index_name in enumerate(index_names):
-    index_values[index_name] = list(df.index.get_level_values(index_name))
+    index_values[index_name] = list(df.index.unique(index_name))
     if i < desired_level:
       previous_level_names.append(index_name)
       previous_level_value.append(previous_levels[i])
