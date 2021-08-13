@@ -37,16 +37,12 @@ def iweekof(df, previous_levels, str_date):
     if i < desired_level:
       previous_level_names.append(index_name)
       previous_level_value.append(previous_levels[i])
-  values = index_values[index_names[desired_level]]
-  found_index = -1
-  for i, value in enumerate(values):
-    b_keep = True
-    for j, previous_name in enumerate(previous_level_names):
-      if index_values[previous_name][i] != previous_level_value[j]:
-        b_keep = False
-    if b_keep and (value == week):
+  possible_values = index_values[index_names[desired_level]]
+  found_index = -1  
+  for i, value in enumerate(possible_values):
+    if value == week:
       found_index = i
-      break
+      break  
   if found_index < 0:
     print('cannot find corresponding index for week of', str_date)
   return found_index
