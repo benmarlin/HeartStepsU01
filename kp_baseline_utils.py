@@ -156,12 +156,13 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     MOVA = ipaq_data['ipaq_1'] * (ipaq_data['ipaq_1_hr'] * 60. + ipaq_data['ipaq_1_min'])
     MOMA = ipaq_data['ipaq_2'] * (ipaq_data['ipaq_2_hr'] * 60. + ipaq_data['ipaq_2_min'])
     MOW  = ipaq_data['ipaq_3'] * (ipaq_data['ipaq_3_hr'] * 60. + ipaq_data['ipaq_3_min'])
-    
+    MOTO = MOVA + MOMA + MOW
+        
     MMVA = MOVA + MOMA
     MMAE = 2. * MOVA + MOMA                                  
     MMET = 8. * MOVA + 4. * MOMA + 3.3 * MOW
-     
-    ipaq_scores = {'MOVA':MOVA, 'MOMA':MOMA, 'MOW':MOW, 'MMVA':MMVA, 'MMAE':MMAE, 'MMET':MMET}        
+         
+    ipaq_scores = {'MOVA':MOVA, 'MOMA':MOMA, 'MOW':MOW, 'MOTO':MOTO, 'MMVA':MMVA, 'MMAE':MMAE, 'MMET':MMET}        
     ipaq_scores = pd.DataFrame(ipaq_scores).set_index(df['study_id'])
 
     ipaq_scores_filename = 'kp-baseline-survey-ipaq.csv'
