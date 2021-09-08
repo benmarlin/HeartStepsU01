@@ -86,8 +86,19 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     #Create social csv file
 
     column_names = ['age', 'gender', 'support_1', 'support_2',
-                    'support_3', 'support_4', 'support_5', 'support_6']
-    df_social = df[column_names]
+                    'support_3', 'support_4', 'support_5', 'support_6',
+                    'ipaq_1_hr', 'ipaq_2_hr', 'ipaq_3_hr', 'ipaq_4_hr',
+                    'life_1', 'life_2', 'life_3', 'life_4', 'life_5',
+                    'self_1', 'self_2', 'self_3', 'self_4', 'self_5']
+    df_social = df[column_names].copy()
+    chosen_columns = ['support_1', 'support_2', 'support_3', 'support_4', 'support_5', 'support_6']
+    df_social['average_support']    = df_social[df_social[chosen_columns] < 99].mean(axis=1)
+    chosen_columns = ['ipaq_1_hr', 'ipaq_2_hr', 'ipaq_3_hr', 'ipaq_4_hr']
+    df_social['average_ipaq'] = df_social[chosen_columns].mean(axis=1)  
+    chosen_columns = ['life_1', 'life_2', 'life_3', 'life_4', 'life_5']
+    df_social['average_stress'] = df_social[chosen_columns].mean(axis=1)
+    chosen_columns = ['self_1', 'self_2', 'self_3', 'self_4', 'self_5']
+    df_social['average_efficacy'] = df_social[chosen_columns].mean(axis=1)
     df_social = df_social.set_index(df['study_id'])
 
     social_filename = 'kp-baseline-survey-social.csv'
