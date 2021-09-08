@@ -343,11 +343,12 @@ def compute_VAR(df, names, max_lag):
 def get_correlations(df):
     df = df.replace({True: 1, False: 0})    
     df_correlations = df.corr()
-    figsize = (8,7)
+    figsize = (7,8)
     if df.shape[1] > 12:
-        figsize = (11,9)
+        figsize = (9,10)
     plt.figure(figsize=figsize)
-    sn.heatmap(df_correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1)
+    sn.heatmap(df_correlations, cmap=cm.seismic, annot=True, vmin=-1, vmax=1,
+               cbar_kws={"orientation": "horizontal"})
     plt.show()
     return df_correlations
 
