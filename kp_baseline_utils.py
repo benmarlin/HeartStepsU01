@@ -169,7 +169,7 @@ def process_kp_baseline_survey(data_dictionary_filename, data_filename, output_f
     df_social = df[column_names].copy()
     chosen_columns = ['support_1', 'support_2', 'support_3', 'support_4', 'support_5', 'support_6']
     df_social['average_support'] = df_social[df_social[chosen_columns] < 99].mean(axis=1)
-    df_social['MOTO'] = MOTO  
+    df_social['MOTO_hr'] = MOTO / 60. 
     chosen_columns = ['life_1', 'life_2', 'life_3', 'life_4', 'life_5']
     df_social['average_stress'] = df_social[chosen_columns].mean(axis=1)
     chosen_columns = ['self_1', 'self_2', 'self_3', 'self_4', 'self_5']
