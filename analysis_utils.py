@@ -47,6 +47,9 @@ def process_morning_survey(df, b_intrinsic=True, b_categorical=False):
     df_selected = df[column_list]
     if b_intrinsic:
         #Temporary fix for data export
+        from pandas.core.common import SettingWithCopyWarning
+        import warnings
+        warnings.simplefilter(action="ignore", category=SettingWithCopyWarning)
         df_selected["Extrinsic"] = [x if (str(x).lower() != 'nan') else df["Mm_Extrinsic_Motivation"].values[i]
                                     for i, x in enumerate(df["Extrinsic"].values)]
         df_selected["Intrinsic"] = [x if (str(x).lower() != 'nan') else df["Mm_Intrinsic_Motivation"].values[i]
