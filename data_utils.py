@@ -149,7 +149,13 @@ def crop_data(participants_df, df, b_display, b_crop_end=True):
                         new_df = new_df.loc[dates_df <= end_date]
                 new_df['Subject ID'] = p
                 new_df = new_df.reset_index()
-                new_df['Date'] = pd.to_datetime(new_df['Date']).dt.strftime('%Y-%m-%d')
+                date_name = 'DATE'
+                columns = list(new_df.columns)
+                if date_name not in columns:
+                    for col_name in columns:
+                        if col_name.find('Date') >= 0:
+                            date_name = col_name              
+                new_df['Date'] = pd.to_datetime(new_df[date_name]).dt.strftime('%Y-%m-%d')
                 new_df = new_df.set_index(['Subject ID', 'Date'])
                 frames.append(new_df)
             else:
@@ -209,7 +215,7 @@ def crop_end_fitbit_per_minute(data_product, participants_df, df, b_display):
 
 def load_data(data_catalog, data_product, b_crop=True, b_display=True):
     participant_df  = get_participants_by_type(data_catalog,"full")
-    data_dictionary = get_data_dictionary(data_catalog, data_product)    
+    data_dictionary = get_data_dictionary(data_catalog, data_product)
     df = get_df_from_zip(data_dictionary.data_file_name, data_catalog.data_file, participant_df)
     index = [x.strip() for x in data_dictionary.index_fields.split(";")]
     df = df.set_index(index)
