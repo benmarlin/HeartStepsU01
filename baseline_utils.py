@@ -1,15 +1,17 @@
 import pandas as pd
 import numpy as np
+import collections
 import sys, getopt
 import os
 from os import path
 
-def process_baseline_survey(data_dictionary_filename, data_filename, output_folder):
+def process_baseline_survey(data_dictionary_filename, data_filename, output_data_folder, output_data_dictionary_folder):
 
     print('input dd    =', data_dictionary_filename)
     print('input df    =', data_filename)
-    print('output dir  =', output_folder)
-
+    print('output data dir  =', output_data_folder)
+    print('output data dictionary dir  =', output_data_dictionary_folder)
+    
     #--------------------------------------------------------------------------------
     #Process data dictionary for U01DataDictionaries
     
@@ -144,8 +146,8 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
     
     output_data_dictionary = 'baseline-survey.csv'
     output_data = 'baseline-survey-data.csv'
-    output_data_dictionary_path = os.path.join(output_folder, output_data_dictionary)
-    output_data_path = os.path.join(output_folder, output_data)
+    output_data_dictionary_path = os.path.join(output_data_dictionary_folder, output_data_dictionary)
+    output_data_path = os.path.join(output_data_folder, output_data)
     dd.to_csv(output_data_dictionary_path, index=False)
     df.to_csv(output_data_path, index=False)
 
@@ -171,28 +173,49 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
                     '5: 6 = Agree moderately'           : '1: 2 = Disagree moderately',
                     '6: 7 = Agree strongly'             : '0: 1 = Disagree strongly' }
     
-    def reverse(df):
-        df = df.apply(lambda x: reverse_map[x])
-        return df
+    def reverse(input_df):
+        ouput_df = input_df.copy()
+        for i, x in enumerate(ouput_df):
+            if str(x).lower()=='nan':
+                ouput_df[i] = x
+            else:
+                ouput_df[i] = reverse_map[x]
+        return ouput_df
 
     df_tipi = {}
-    df_tipi['Extraversion']          = [df_data['TIPI extravert 1'].values,            reverse(df_data['TIPI reserved 6']).values]
-    df_tipi['Agreeableness']         = [reverse(df_data['TIPI critical 2']).values,    df_data['TIPI sympathetic 7'].values]
-    df_tipi['Conscientiousness']     = [df_data['TIPI dependable 3'].values,           reverse(df_data['TIPI disorganized 8']).values]
-    df_tipi['Emotional Stability']   = [reverse(df_data['TIPI anxious 4']).values,     df_data['TIPI calm 9'].values]
-    df_tipi['Openess to Experience'] = [df_data['TIPI open 5'].values,                 reverse(df_data['TIPI conventional 10']).values]
+    df_tipi['Extraversion']          = [df_data['TIPI extravert 1'].values,         reverse(df_data['TIPI reserved 6']).values]
+    df_tipi['Agreeableness']         = [reverse(df_data['TIPI critical 2']).values, df_data['TIPI sympathetic 7'].values]
+    df_tipi['Conscientiousness']     = [df_data['TIPI dependable 3'].values,        reverse(df_data['TIPI disorganized 8']).values]
+    df_tipi['Emotional Stability']   = [reverse(df_data['TIPI anxious 4']).values,  df_data['TIPI calm 9'].values]
+    df_tipi['Openness to Experience']= [df_data['TIPI open 5'].values,              reverse(df_data['TIPI conventional 10']).values]
 
-    scores = {}
-    for k,v in df_tipi.items():        
-        item0 = [str(x).split(':')[1] for x in v[0]]
-        item0 = [int(str(x).split('=')[0]) for x in item0]
-        item1 = [str(x).split(':')[1] for x in v[1]]
-        item1 = [int(str(x).split('=')[0]) for x in item1]
-        scores[k] = [(x+y)/2 for x, y in zip(item0, item1)]
+    scores = collections.defaultdict(list)
+    for k,v in df_tipi.items():
+        item0 = []
+        for x in v[0]:
+            if str(x).lower() != 'nan':
+                x_ = str(x).split(':')[1]
+                x_ = int(str(x_).split('=')[0])
+            else:
+                x_ = np.nan
+            item0.append(x_)
+        item1 = []
+        for x in v[1]:
+            if str(x).lower() != 'nan':
+                x_ = str(x).split(':')[1]
+                x_ = int(str(x_).split('=')[0])
+            else:
+                x_ = np.nan
+            item1.append(x_)      
+
+        for i,x in enumerate(item0):
+            y = item1[i]
+            compute_score = np.nanmean(np.array([x,y]))
+            scores[k].append(compute_score)                            
     scores = pd.DataFrame(scores).set_index(df['study_id'])
 
     tipi_scores_filename = 'baseline-survey-tipi.csv'
-    tipi_scores_path = os.path.join(output_folder, tipi_scores_filename)
+    tipi_scores_path = os.path.join(output_data_folder, tipi_scores_filename)
     scores.to_csv(tipi_scores_path)
     print('TIPI scores =', tipi_scores_filename)
 
@@ -236,7 +259,7 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
     scores = pd.DataFrame(scores).set_index(df['study_id'])
 
     motivation_scores_filename = 'baseline-survey-motivation.csv'
-    motivation_scores_path = os.path.join(output_folder, motivation_scores_filename)
+    motivation_scores_path = os.path.join(output_data_folder, motivation_scores_filename)
     scores.to_csv(motivation_scores_path)
     print('Motivation scores =', motivation_scores_filename)    
 
@@ -244,35 +267,44 @@ def process_baseline_survey(data_dictionary_filename, data_filename, output_fold
 def main(argv):
 
     #For example, run the following command:
-    #python baseline_utils.py -d "HeartSteps_DataDictionary_2021-01-22.csv" -f "HeartSteps-BaselineSurveyData_DATA_2021-04-21_1225.csv" -o ""
+    #python baseline_utils.py -d "HeartSteps_DataDictionary_2021-01-22.csv" -f "HeartSteps-BaselineSurveyData_DATA_2022-03-30_0958.csv" -o "" -p ""
 
-    instructions = "baseline_utils.py -d <data_dictionary_filename> -f <data_filename> -o <output_folder>"
+    instructions = "baseline_utils.py -d <data_dict> -f <data> -o <out_data_folder> -p <out_data_dict_folder>"
     try:
-        opts, args = getopt.getopt(argv,"d:f:o:",["data_dictionary=","data=","output_folder="])
+        opts, args = getopt.getopt(argv,"d:f:o:p:",["data_dict=","data=","out_data_folder=","out_data_dict_folder="])
     except getopt.GetoptError:
-        print(instructions)
+        print('please enter the following command:', instructions)
         sys.exit(2)
 
     data_dictionary_filename = ''
-    data_filename = '' 
+    data_filename = ''
     for opt, arg in opts:
-        if opt in ["-d", "--data_dictionary"]:
+        if opt in ["-d", "--data_dict"]:
             data_dictionary_filename = arg
         elif opt in ["-f", "--data"]:
             data_filename = arg
-        elif opt in ["-o", "--output_folder"]:
-            output_folder = arg
+        elif opt in ["-o", "--out_data_folder"]:
+            output_data_folder = arg
+        elif opt in ["-p", "--out_data_dict_folder"]:
+            output_data_dictionary_folder = arg
+
+    print('found output_data_dictionary_folder =', output_data_dictionary_folder)
 
     if data_dictionary_filename == '' or data_filename == '':
-        print(instructions)
+        print('please enter the following command:', instructions)
         sys.exit()
 
-    if output_folder != '' and not os.path.exists(output_folder):
-        print(output_folder, 'folder does not exist!')
-        print(instructions)
+    if output_data_folder != '' and not os.path.exists(output_data_folder):
+        print(output_data_folder, 'folder for data does not exist!')
+        print('please enter the following command:', instructions)
+        sys.exit()
+
+    if output_data_dictionary_folder != '' and not os.path.exists(output_data_dictionary_folder):
+        print(output_data_dictionary_folder, 'folder for data dictionary does not exist!')
+        print('please enter the following command:', instructions)
         sys.exit()
     
-    process_baseline_survey(data_dictionary_filename, data_filename, output_folder)
+    process_baseline_survey(data_dictionary_filename, data_filename, output_data_folder, output_data_dictionary_folder)
 
 if __name__ == '__main__':    
      main(sys.argv[1:])
