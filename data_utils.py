@@ -105,7 +105,13 @@ def get_participant_info(data_catalog):
 
 def get_participants_by_type(data_catalog, participant_type):
     pi = get_participant_info(data_catalog)
-    pi = pi[pi["Participant Type"]==participant_type]
+    check_type = []
+    for type_i in pi["Participant Type"].values:
+        if str(type_i).find(participant_type) >= 0:
+            check_type.append(True)
+        else:
+            check_type.append(False)
+    pi = pi[check_type]
     return(pi)
 
 def crop_data(participants_df, df, b_display, b_crop_end=True):
