@@ -43,12 +43,12 @@ def format_numeric_with_nan(x, fmt="{:.0f}"):
 def morning_survey_response_report(dc, threshold=3, b_crop=False):
 
   #Get participants listing
-  participants_df = data_utils.get_participant_info(dc)
+  participants_df = get_participant_info(dc)
   participants_df = participants_df.set_index("Participant ID")
   
   #Select morning survey and get data frame
   product = "Morning Survey"
-  df=data_utils.load_data(dc, product)
+  df=load_data(dc, product)
 
   #Select fields to use when computing response rate
   fields = ["Busy", "Committed", "Rested", "Mood"]

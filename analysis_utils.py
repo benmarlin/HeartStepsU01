@@ -182,7 +182,7 @@ def plot_time_series(df, y_name, subject_names):
     df = df.dropna()
     df = df.replace({True: 1, False: 0})
     #Check if the subject name exists in the data
-    participants = data_utils.get_subject_ids(df)
+    participants = get_subject_ids(df)
     for subject_id in subject_names:
         if subject_id not in participants:
             print('cannot find Participant ID =', subject_id)

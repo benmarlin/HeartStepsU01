@@ -299,4 +299,219 @@ def resample_fitbit_per_minute(participant='105', df=None, filename=None, interv
         df = df.dropna()
     return df
 
+def merge_data_frames(dc, data_set_names, short_names):
+
+  dfs={}
+  dds={}
+  columns={}
+
+  #Get all dataframes and columns
+  for name in data_set_names:
+    df              = load_data(dc, name, b_crop=True, b_display=True)
+    dfs[name]       = df
+    columns[name]   = list(df.columns)
+    dds[name]       = get_data_dictionary(dc,name)
+
+  #Merge data sets
+  for name in data_set_names:
+
+    #Get column names in other frames
+    all_cols = []
+    for key in columns:
+      if(key != name):
+        all_cols = all_cols + columns[key]
+    all_cols = set(all_cols)
+
+    #Get overlapping column names
+    overlap_cols = list(set(columns[name]).intersection(all_cols))
+
+    #Re-map column names
+    name_map = {x: short_names[name] + " " + x for x in overlap_cols}
+    dfs[name] = dfs[name].rename(name_map,axis=1,errors='raise')
+    dds[name] = dds[name].rename(name_map,axis=0,errors='raise')
+
+  #Concatenate frames with re-mapped names
+  df = pd.concat([dfs[name] for name in data_set_names],axis=1)
+  dd = pd.concat([dds[name] for name in data_set_names],axis=0)
+  dd = dd.drop(labels=["Date","Subject ID"])
+
+  return(df,dd)
+
+def relabel_participants(df,id_map=None):
+  #Do a basic relabeling of participant IDs
+  if id_map is None:
+    if isinstance(df.index, pd.MultiIndex):
+      ids = list(df.index.levels[0])
+    else:
+      ids = list(df.index)
+
+    new_ids = np.random.permutation(len(ids))
+    id_map_list = list(zip(ids,new_ids ))
+    id_map = {x[0]:x[1] for x in id_map_list }
+    print("Creating new ID map")
+  else:
+    print("Using supplied ID map")
+
+  #Drop any participants not in the mapping
+  if isinstance(df.index, pd.MultiIndex):
+    participants_in_index = list(df.index.levels[0])
+  else:
+    participants_in_index = list(df.index)
+
+  participants_in_index = [str(x) for x in participants_in_index]
+  participants_in_map   = [str(x) for x in id_map.keys()]
+  participants_to_drop = list(set(participants_in_index) - set(participants_in_map))
+
+  df = df.drop(labels = participants_to_drop )
+
+  #Re-map the ids
+  df = df.rename(id_map)
+  return(df,id_map)
+
+def add_date_indicators(df,dd):
+  #add collection of date related indicators
+  dates = pd.to_datetime(df.index.get_level_values(1))
+  
+  #Day of week
+  df["Day of Week"] = dates.dayofweek
+  dd = dd.append(pd.Series({"DataType": "Integer",	"Required": "True", 	"ElementDescription":"Day of the week. 0 is Monday. 6 is Sunday", 	"ValueRange": "{0..6}"},name="Day of Week"))
+
+  #Is weekend day
+  df["Is Weekend Day"] = dates.dayofweek >=5 
+  dd = dd.append(pd.Series({"DataType": "Boolean",	"Required": "True", 	"ElementDescription":"Is this day a weekend day. True or False.", 	"ValueRange": "{0,1}"},name="Is Weekend Day"))
+
+  #Day of year
+  df["Day of Year"] = dates.dayofyear
+  dd = dd.append(pd.Series({"DataType": "Integer",	"Required": "True", 	"ElementDescription":"Day of the year. Jan 1 is day 1.", 	"ValueRange": "{1..365}"},name="Day of Year"))
+
+  #Get days in study variable for each participant
+  study_days = []
+  for id in list(df.index.levels[0]):
+    dates      = pd.to_datetime(df.loc[id].index)
+    date_diff  = dates-dates[0]
+    study_days = study_days + list(date_diff.days)
+  df["Study day"] = study_days
+  dd = dd.append(pd.Series({"DataType": "Integer",	"Required": "True", 	"ElementDescription":"Days since start of study. First day is day 0.", 	"ValueRange": "{0,...}"},name="Study day"))
+
+  return df,dd
+
+def get_df_from_zip(file_type,zip_file, participants,interval=None,crop=True):
+    
+    #Get participant list from participants data frame
+    participant_list = list(participants["Participant ID"])
+
+    participants["Start Date"] = participants["Intervention Start Date"].apply(pd.to_datetime)
+    participants["End Date"] = participants["End Date"].apply(pd.to_datetime)
+    participants = participants.set_index("Participant ID")
+
+    #Open data zip file
+    z = zipfile.ZipFile(zip_file)
+    
+    #Get list of files of specified type
+    file_list = get_file_names_from_zip(z, file_type=file_type)
+    
+    #Open file inside zip
+    dfs=[]
+    for count,file_name in enumerate(file_list):
+
+        sid = get_user_id_from_filename(file_name)
+        if(sid not in participant_list):
+            print("Processing ID %s (%d/%d)"%(sid,count,len(file_list)))
+            print("  ID not in participants list")
+        else:
+            print("Processing ID %s (%d/%d)"%(sid,count,len(file_list)))
+
+            f = z.open(file_name)
+            file_size = z.getinfo(file_name).file_size
+            if file_size > 0:
+                df  = pd.read_csv(f, low_memory=False)
+                df["Participant ID"] = sid
+
+                df['time'] = df['time'].map(lambda x: str(x).replace('S', '00'))
+                df['datetime'] = df['date'].astype(str) + ' ' + df['time'].astype(str)
+                df['datetime'] = pd.to_datetime(df['datetime'], format='%Y-%m-%d %H:%M:%S')
+                
+                #Require both steps and heart rate to not be nan
+                #Set both to nan if either is and consider minute to
+                #be invalid in this case
+                df['valid_minutes'] = np.logical_and(df["steps"].notna(), df["heart_rate"].notna())
+                df.loc[df["valid_minutes"]==False, 'steps'] = np.nan
+                df.loc[df["valid_minutes"]==False, 'heart_rate'] = np.nan
+
+                if(interval is not None):
+                  df1 = df.set_index('datetime').resample(interval).first()
+                  df2 = df.set_index('datetime').resample(interval).sum()
+                  df3 = df.set_index('datetime').resample(interval).mean()
+
+                  df1["steps"] = df2["steps"]
+                  df1["valid_minutes"] = df2["valid_minutes"]
+                  df1["heart_rate"] = df3["heart_rate"]
+
+                  df1=df1.reset_index()
+                  df1=df1.drop(columns=["username","fitbit_account"])
+
+                  df = df1
+
+                if(crop):
+                  df=df.set_index(["datetime"])
+                  start=participants.loc[sid]["Start Date"]
+                  end=participants.loc[sid]["End Date"]
+
+                  if(start is pd.NaT): 
+                    print("  Participant %s start date is missing"%sid)
+                    if(end is pd.NaT):
+                      print("  Participant %s end date is missing"%sid)
+                    else:
+                      df = df[:end]
+                  else:
+                    if(end is pd.NaT):
+                      print("  Participant %s end date is missing"%sid)
+                      df = df[start:]
+                    else:
+                      print(  "  cropping dates to ",start, " ", end)
+                      df = df[start:end]                 
+
+                df = df.reset_index()
+                df=df.set_index(["Participant ID","datetime"])
+                df.loc[df["valid_minutes"]==0, 'steps'] = np.nan
+                df.loc[df["valid_minutes"]==0, 'heart_rate'] = np.nan
+
+                print("  has %d rows"%len(df))
+
+                dfs.append(df)
+
+            else:
+                print('warning %s is empty (size = 0)' % file_name)
+
+    df = pd.concat(dfs)
+    return(df)
+
+def apply_transforms(df,dd,transforms):
+  for t in transforms:
+    t_type = t["type"]
+
+    #Drop the columns
+    if(t_type=="drop"):
+      if(t["col"] in df.columns):
+        df=df.drop(labels=t["col"],axis=1)
+      if(t["col"] in list(dd.index)):
+        dd=dd.drop(labels=t["col"],axis=0)
+
+    #Add a missing indicator
+    elif(t_type=="miss_ind"):  
+      df[t["new_name"]] = df[t["col"]].notna()
+      dd = dd.append(pd.Series({"DataType": "Boolean",	"Required": "True", 	"ElementDescription":t["desc"], 	"ValueRange": "{True, False}"},name=t["new_name"]))
+
+    #Rename columns:
+    elif(t_type=="rename"):  
+      df=df.rename({t["col"]:t["new_name"]},axis=1) 
+      dd=dd.rename({t["col"]:t["new_name"]},axis=0) 
+
+    #Merge columns by averaging
+    elif(t_type=="avg"):
+      df[t["new_name"]] = df[t["cols"]].mean(axis=1)
+      dd = dd.append(pd.Series({"DataType": "Float",	"Required": "True", 	"ElementDescription":t["desc"], 	"ValueRange": ""},name=t["new_name"]))
+      print("Producing average column")
+
+  return(df,dd)
 

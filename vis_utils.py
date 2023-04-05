@@ -64,7 +64,7 @@ def plot_summary_histograms(df, dd, cols=3, fields=[]):
                             if len(table) < 30: #Sort table if it is not too big                              
                                 if field_type in ["Categorical"]:
                                     #Insert missing categories for zero count
-                                    categories = data_utils.get_categories(dd, field)
+                                    categories = get_categories(dd, field)
                                     if len(categories) > len(table.index):
                                         zero_counts = [x for x in categories if x not in list(table.index)]
                                         for zero_count in zero_counts:
@@ -125,15 +125,15 @@ def plot_individual_time_series(df,variable,subject_id):
 
 
 def show_individual_time_series_visualizer(df):
-    sids=data_utils.get_subject_ids(df)
-    variables=data_utils.get_variables(df)
+    sids=get_subject_ids(df)
+    variables=get_variables(df)
     if (len(variables) > 0):
         interact(plot_individual_time_series, df=fixed(df), subject_id=sids, variable=variables)
     else:
         print('no variable to display')
   
 def show_summary_table(df, b_isbaseline=False):
-    subjects = data_utils.get_subject_ids(df, b_isbaseline)
+    subjects = get_subject_ids(df, b_isbaseline)
     cols     = list(df.columns)
     
     subjects_str=", ".join(subjects)
@@ -154,7 +154,7 @@ def show_summary_table(df, b_isbaseline=False):
     display(x)
 
 def show_summary_table(df, b_isbaseline=False):
-    subjects = data_utils.get_subject_ids(df, b_isbaseline)
+    subjects = get_subject_ids(df, b_isbaseline)
     cols     = list(df.columns)
     
     subjects_str=", ".join(subjects)
@@ -238,7 +238,7 @@ def show_data_selector(data_dir):
     return(w)
 
 def show_catalog_selector(catalog_file):
-    catalogs = data_utils.get_catalogs(catalog_file) 
+    catalogs = get_catalogs(catalog_file) 
     w=widgets.Dropdown(
         options=catalogs,
         value=catalogs[0],
