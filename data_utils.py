@@ -395,7 +395,7 @@ def add_date_indicators(df,dd):
 
   return df,dd
 
-def get_df_from_zip(file_type,zip_file, participants,interval=None,crop=True):
+def get_fb_df_from_zip(file_type,zip_file, participants,interval=None,crop=True):
     
     #Get participant list from participants data frame
     participant_list = list(participants["Participant ID"])
