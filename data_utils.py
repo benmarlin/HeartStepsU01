@@ -333,7 +333,8 @@ def merge_data_frames(dc, data_set_names, short_names):
   #Concatenate frames with re-mapped names
   df = pd.concat([dfs[name] for name in data_set_names],axis=1)
   dd = pd.concat([dds[name] for name in data_set_names],axis=0)
-  dd = dd.drop(labels=["Date","Subject ID"])
+
+  #dd = dd.drop(labels=["Date","Subject ID"])
 
   return(df,dd)
 
